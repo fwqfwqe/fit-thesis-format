@@ -1,0 +1,6 @@
+interface:
+  display_name: "福州理工经管论文格式审核与排版"
+  short_description: "审核学院论文格式并列出改法，保留研究内容，生成自动编号及公式可编辑的Word"
+  default_prompt: "使用 $fit-thesis-format 先审核福州理工学院经管论文格式，按位置列出现状、要求和改法；按授权统一学校封面承诺书、四级自动标题编号、可编辑公式与完整公式标签、真实奇偶页眉、自动页码及引用上标，研究内容不改，输出可在Word样式栏手调的DOCX。"
+policy:
+  allow_implicit_invocation: true

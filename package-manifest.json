@@ -1,0 +1,96 @@
+{
+  "skill": "fit-thesis-format",
+  "version": "v4",
+  "files": [
+    {
+      "path": "fit-thesis-format/SKILL.md",
+      "size": 8147,
+      "sha256": "6056b216b7cc0404f061e15e9cb10ed34daecd428a2752107376a7703cc388ec"
+    },
+    {
+      "path": "fit-thesis-format/agents/openai.yaml",
+      "size": 602,
+      "sha256": "56d2c753be05566610504c033592fe708c3fafc3ec6498a0470c86271b2705ad"
+    },
+    {
+      "path": "fit-thesis-format/assets/fit-economics-management-template.docx",
+      "size": 218309,
+      "sha256": "83dac94cb138ab7b46fb100d9ac05c6e1ab8c7dec986ebefd2e5ca22bf359eac"
+    },
+    {
+      "path": "fit-thesis-format/references/audit-mode.md",
+      "size": 7652,
+      "sha256": "701fd93243aa5acd85023dc8d9531b5fe08607672927ef5e6d74bff6e5653a0a"
+    },
+    {
+      "path": "fit-thesis-format/references/examples-format-evidence.md",
+      "size": 5941,
+      "sha256": "0c10714ee8780cca4d2c0af8cf5b10559655d0dc329b50dce35091dbd38753b3"
+    },
+    {
+      "path": "fit-thesis-format/references/format-requirements.md",
+      "size": 14457,
+      "sha256": "96f92acc05dfaca9eac6326373df7ce0af81f4850c51736c6ef7bb520f0952c8"
+    },
+    {
+      "path": "fit-thesis-format/references/native-academic-controls.md",
+      "size": 7797,
+      "sha256": "c528c1bd9bbc2ba5b5de3e3aaba0dd802a45f579d809fb37ee8b1677ad971ce2"
+    },
+    {
+      "path": "fit-thesis-format/references/school-standard-mode.md",
+      "size": 6433,
+      "sha256": "d74f4be41c9f629b437a43ebbae9b9c443574b2e505d89c118b687405fc20eca"
+    },
+    {
+      "path": "fit-thesis-format/references/source-comments.json",
+      "size": 24711,
+      "sha256": "066a2ebce9445ec2d256e771c972b63f8747418f674c9033d8a2df62d1ad9d6c"
+    },
+    {
+      "path": "fit-thesis-format/references/style-spec.json",
+      "size": 6142,
+      "sha256": "165bece0f83d95eabd18333f3883295f084aa3edbd7a4884331dcf7ebf670c87"
+    },
+    {
+      "path": "fit-thesis-format/references/workflow.md",
+      "size": 14010,
+      "sha256": "a405cf9bbf62e62a8fd59225f27c4e65e83a1e4a7c33497ec88b3b37b45a8cc3"
+    },
+    {
+      "path": "fit-thesis-format/scripts/academic_numbering.py",
+      "size": 24477,
+      "sha256": "23ca30f02676b041bdc88e481703f3eeb3b6fa42c7ad348dfc2693a4d8e7be45"
+    },
+    {
+      "path": "fit-thesis-format/scripts/citation_style.py",
+      "size": 15800,
+      "sha256": "4532e15397f5132ff20194e47b180fa52abcab3e88bd347d4e84f9be0442e096"
+    },
+    {
+      "path": "fit-thesis-format/scripts/format_audit.py",
+      "size": 89568,
+      "sha256": "3f305d09c8a234536ee6c130e1bbcebee9c0281df9d19b857a07c6d7d9784631"
+    },
+    {
+      "path": "fit-thesis-format/scripts/thesis_format.py",
+      "size": 31912,
+      "sha256": "96d7a06e5589fa71dae0abdca8143c8e581994f9d1af97358359903e535c04c2"
+    },
+    {
+      "path": "fit-thesis-format/scripts/thesis_layout.py",
+      "size": 17991,
+      "sha256": "e92b08cdccaa436ac61d7aac13b9cff4057e799ef26eb55dde9a58639d31529c"
+    },
+    {
+      "path": "fit-thesis-format/scripts/validate_academic_controls.py",
+      "size": 11368,
+      "sha256": "564f83ad91721c03b8efe8cbdc26b3a20a5aa6ff04b8f784c610054689d7a8c4"
+    }
+  ],
+  "archive": {
+    "path": "dist/fit-thesis-format-v4.zip",
+    "size": 289528,
+    "sha256": "160473ea268d98b2b3e430160da74d5dfa400a6d8c757a0d7bc27700f3c5a53c"
+  }
+}
