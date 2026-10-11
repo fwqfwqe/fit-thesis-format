@@ -1,16 +1,16 @@
 {
   "skill": "fit-thesis-format",
-  "version": "v4",
+  "version": "v5",
   "files": [
     {
-      "path": "fit-thesis-format/SKILL.md",
-      "size": 8147,
-      "sha256": "6056b216b7cc0404f061e15e9cb10ed34daecd428a2752107376a7703cc388ec"
+      "path": "fit-thesis-format/agent-tools.json",
+      "size": 5522,
+      "sha256": "4f042202c69a5f4883d48526e40557143dfa2ae610f0043734d651bdd14679e6"
     },
     {
       "path": "fit-thesis-format/agents/openai.yaml",
-      "size": 602,
-      "sha256": "56d2c753be05566610504c033592fe708c3fafc3ec6498a0470c86271b2705ad"
+      "size": 601,
+      "sha256": "4465d432d740366792994e7eb8089247523e6829d97604fda8774e9a53560783"
     },
     {
       "path": "fit-thesis-format/assets/fit-economics-management-template.docx",
@@ -18,9 +18,14 @@
       "sha256": "83dac94cb138ab7b46fb100d9ac05c6e1ab8c7dec986ebefd2e5ca22bf359eac"
     },
     {
+      "path": "fit-thesis-format/references/agent-protocol.md",
+      "size": 5810,
+      "sha256": "0e7aad2a92d74cf3a224b9ebb499d2f97f85d493ce42785e401a9a0e0e05819a"
+    },
+    {
       "path": "fit-thesis-format/references/audit-mode.md",
-      "size": 7652,
-      "sha256": "701fd93243aa5acd85023dc8d9531b5fe08607672927ef5e6d74bff6e5653a0a"
+      "size": 7687,
+      "sha256": "4718091ef423d71ed6463c58f2895e2750697ff04e02257f54a3602552579671"
     },
     {
       "path": "fit-thesis-format/references/examples-format-evidence.md",
@@ -36,6 +41,11 @@
       "path": "fit-thesis-format/references/native-academic-controls.md",
       "size": 7797,
       "sha256": "c528c1bd9bbc2ba5b5de3e3aaba0dd802a45f579d809fb37ee8b1677ad971ce2"
+    },
+    {
+      "path": "fit-thesis-format/references/portable-rendering.md",
+      "size": 6115,
+      "sha256": "7ad776a03c8001d6e7384b6345f415f10a95ed2d81c64f54995fdc81a7d130f7"
     },
     {
       "path": "fit-thesis-format/references/school-standard-mode.md",
@@ -54,13 +64,28 @@
     },
     {
       "path": "fit-thesis-format/references/workflow.md",
-      "size": 14010,
-      "sha256": "a405cf9bbf62e62a8fd59225f27c4e65e83a1e4a7c33497ec88b3b37b45a8cc3"
+      "size": 14364,
+      "sha256": "b6899e4abe4988c89657daab7200d877b8ac52eb0234ce11d9fdc72e62858842"
+    },
+    {
+      "path": "fit-thesis-format/requirements-render.txt",
+      "size": 33,
+      "sha256": "f5f56ec44fd63935563978527584875f91c46858dc82f86b8b907e190ee9e6ea"
+    },
+    {
+      "path": "fit-thesis-format/requirements.txt",
+      "size": 31,
+      "sha256": "64d5cf948b38e47ff9a421a3c583c582d00e6c6e7dde99b93622cd929cf1f121"
     },
     {
       "path": "fit-thesis-format/scripts/academic_numbering.py",
       "size": 24477,
       "sha256": "23ca30f02676b041bdc88e481703f3eeb3b6fa42c7ad348dfc2693a4d8e7be45"
+    },
+    {
+      "path": "fit-thesis-format/scripts/agent_cli.py",
+      "size": 16205,
+      "sha256": "7ada56fb8523f699a5a805c5707d29f4c34a4e00a08f58cc0e7df97c59f8dc61"
     },
     {
       "path": "fit-thesis-format/scripts/citation_style.py",
@@ -71,6 +96,11 @@
       "path": "fit-thesis-format/scripts/format_audit.py",
       "size": 89568,
       "sha256": "3f305d09c8a234536ee6c130e1bbcebee9c0281df9d19b857a07c6d7d9784631"
+    },
+    {
+      "path": "fit-thesis-format/scripts/render_pdf.py",
+      "size": 3212,
+      "sha256": "e1ababef576241f6ca04744612de8d111ebec1be7e84a9718f6a537d0cae4bdf"
     },
     {
       "path": "fit-thesis-format/scripts/thesis_format.py",
@@ -86,11 +116,21 @@
       "path": "fit-thesis-format/scripts/validate_academic_controls.py",
       "size": 11368,
       "sha256": "564f83ad91721c03b8efe8cbdc26b3a20a5aa6ff04b8f784c610054689d7a8c4"
+    },
+    {
+      "path": "fit-thesis-format/scripts/word_render.ps1",
+      "size": 7820,
+      "sha256": "08f25dd58442fdc0e7c80b7b4f877ee7c7f1a8043f0727d43f37addfcf248986"
+    },
+    {
+      "path": "fit-thesis-format/SKILL.md",
+      "size": 9648,
+      "sha256": "955a1e436109af24c76b35655f3f5d92cc03f5325a67204a6370199477a7fe0c"
     }
   ],
   "archive": {
-    "path": "dist/fit-thesis-format-v4.zip",
-    "size": 289528,
-    "sha256": "160473ea268d98b2b3e430160da74d5dfa400a6d8c757a0d7bc27700f3c5a53c"
+    "path": "dist/fit-thesis-format-v5.zip",
+    "size": 309037,
+    "sha256": "3270a66497d3e21d4d0d1da02e5a09be98a3caaab505c96123ba1bccf3460844"
   }
 }

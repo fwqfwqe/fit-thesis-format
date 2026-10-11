@@ -1,53 +1,71 @@
-# 福州理工学院经管论文格式 skill
+# 福州理工学院论文格式 · 通用Agent版
 
-`fit-thesis-format` 用于福州理工学院经济管理学院毕业论文的格式审核与排版。当前打包版本为 **v4**，研究内容保持原样，输出可在 Word 样式栏手调的 DOCX。
+**v5** 将学校论文格式规则和执行工具做成独立文件包。能读取文件并调用代码或文档工具的AI/Agent，都可以接入这套流程；无需绑定某个模型、账号或专有插件。排版仍按福州理工学院经济管理学院要求，研究内容保持原样。
 
-## 功能
+[下载 v5 通用包](dist/fit-thesis-format-v5.zip) · [AI读取入口](fit-thesis-format/SKILL.md) · [通用执行协议](fit-thesis-format/references/agent-protocol.md) · [函数调用参数](fit-thesis-format/agent-tools.json)
 
-- 只读格式审核，按位置列出现状、学校要求和改法，并区分需人工复核的项目。
-- 学校封面与诚信承诺书、四级自动编号、可更新两级目录、真实奇偶页眉及连续页码。
-- 可编辑数学公式、正确上下标及完整“公式（x-x）”编号；独立公式以普通段落排版，不使用表格、文本框或边框。
-- 正文引用编号上标，作者与年份保持基线；字体、间距、三线表等按学校范本核查。
-- 最新个人排版偏好：致谢置于全文最后；已有附录完整保留并移到致谢之前，没有附录时不增写。
+## 工作流程，用最简单的话说
 
-正文论述、数据、公式含义、引用条目及附录代码不得改写。自动编号、目录和已授权学校组件的格式性转换单独记录核验。学校范本原批注与个人新增要求有差异时，以已明确的用户要求优先；源证据保留原样。
+1. **收论文、留原稿。** 保存原文件，在副本上工作。
+2. **检查格式。** 对照学校要求，找出哪里要改。
+3. **只改格式。** 调整标题、字体、页眉页码、公式、图表和引用样式。
+4. **核对内容。** 对照原稿，检查文字、数字、公式和参考文献有没有被改动。
+5. **逐页看一遍。** 检查错页、挤压、截断和编号。
+6. **交付。** 给你可编辑的Word和问题说明。
 
-## 安装到 Codex
+只要求审核时，执行检查并给问题清单。完整排版还需要相应的文件修改、DOCX导出和逐页查看工具；能力不足的部分会明确列出。
 
-下载 [v4 ZIP](dist/fit-thesis-format-v4.zip)，将其中整个 `fit-thesis-format` 文件夹放到自己的 `~/.codex/skills/` 目录。
+## 给任意AI使用
 
-Windows 目录通常为 `%USERPROFILE%\.codex\skills\fit-thesis-format`，其下直接包含 `SKILL.md`。已安装旧版时先备份旧文件夹，再换入新版。新开 Codex 对话以加载 skill。
+解压完整包，让AI能访问其中的文件，再把论文DOCX交给它，并发这段话：
 
-## 使用
+> 先读取这个文件夹里的SKILL.md，再按里面的流程处理我的论文。只改格式，研究内容不改；先审核，再修改副本，核对内容，逐页检查，最后给我可编辑的Word和修改说明。如果我只要求审核，就只输出问题清单。
 
-将论文 DOCX 交给 Codex，并说明：
+支持skill的Agent可以把`fit-thesis-format`文件夹交给自己的skill加载器；不支持skill机制的AI，直接读取Markdown说明并调用自己的文件/代码/文档工具即可。`agents/openai.yaml`只是可选界面配置。
 
-> 用 $fit-thesis-format 只审核这篇论文的格式，列出位置、现状、要求和改法，文章内容不要改。
+原有Codex用户仍可把文件夹放入`~/.codex/skills/`，在新对话使用`$fit-thesis-format`。
 
-或：
+## 通用工具调用
 
-> 用 $fit-thesis-format 按学校格式排版，文章研究内容不要改，输出可手调样式的 Word。
+核心脚本适用于Python 3.10+。本次实测Python 3.12.14，依赖为lxml 6.1.1和python-docx 1.2.0：
 
-脚本可独立运行静态审核：
-
-```powershell
-python -m pip install -r requirements.txt
-python fit-thesis-format/scripts/format_audit.py "论文.docx" --json "格式审核.json" --markdown "格式审核.md"
+```text
+python -m pip install -r fit-thesis-format/requirements.txt
+python fit-thesis-format/scripts/agent_cli.py --request task.json
 ```
 
-高级映射、严格文字保护及数学编号调用见 [skill 入口](fit-thesis-format/SKILL.md) 和其链接参考。
+`task.json`审核示例：
 
-## 运行与核验
+```json
+{
+  "action":"audit",
+  "source":"论文.docx",
+  "report":"work/格式审核.json",
+  "markdown":"work/格式审核.md"
+}
+```
 
-本次验证环境：Python 3.12、lxml 6.1.1、python-docx 1.2.0；其余依赖为 Python 标准库。Codex 排版流程使用 documents skill 的文档依赖及渲染能力。Microsoft Word 用于原生动态域刷新、公式编辑和逐页复核。
+入口返回一个JSON结果，所有相对路径基于调用进程的工作目录。函数调用型AI将[工具schema](fit-thesis-format/agent-tools.json)按所在框架注册，再把参数转发给该入口，也可通过标准输入传入。接入示例和完整动作见[通用执行协议](fit-thesis-format/references/agent-protocol.md)。
 
-静态审核不等于最终格式合格证；完整验收还须更新目录和域、检查公式含义，并实际查看每一页。Word 可通过“开始→样式→修改”统一手调；数学文字和公式编号也有各自字符样式。
+工具包括环境探测、原稿清单、静态审核、样式修改、引用格式修改、页眉页脚布局、内容核验和编号/公式结构检查。Agent仍需阅读原文、确定段落角色和授权范围，不能把基础脚本当成所有论文的一键转换器。
 
-## 仓库内容
+## 渲染与手调
 
-- `fit-thesis-format/`：可安装的完整 skill、脚本、格式要求、范本和证据。
-- `dist/fit-thesis-format-v4.zip`：同版本安装包，内容与 skill 源码逐项一致。
-- `package-manifest.json`：文件大小与 SHA-256 校验值。
-- `requirements.txt`：本次核验的 Python 依赖版本。
+可以使用已有Word、文档API或其他DOCX渲染工具。包内提供独立的Windows Word只读导出脚本和可选PDF转图片脚本，调用与依赖见[便携渲染说明](fit-thesis-format/references/portable-rendering.md)。不同引擎的分页与公式兼容性须按实际结果检查。
 
-本仓库为公开的 skill 源码与安装包备份，保留学校范本及格式证据原件；没有上传用户研究论文、数据集或本地运行日志。
+Word中可通过“开始→样式→修改”统一手调。数学文字与公式编号也有各自的字符样式。静态脚本成功不代表已经逐页看过，未完成视觉核验会明确报告。
+
+## 保留的格式要求
+
+学校封面和诚信承诺书；四级自动编号及两级目录；真实奇偶页眉与连续页码；可编辑公式、正确上下标和完整“公式（x-x）”；独立公式不用表格、文本框或边框；正文引用编号上标，作者年份保持基线；已有附录完整保留并放在最后的致谢之前。
+
+研究文字、数据、公式含义、引用条目和附录代码不改写。目录、编号表示及已授权学校组件的转换单独记录。只审核时不修改论文，缺少内容时不自动补写。
+
+## 文件
+
+- `fit-thesis-format/`：完整通用skill、工具schema、脚本、要求、范本与依赖文件。
+- `dist/fit-thesis-format-v5.zip`：与当前源文件逐项校验的通用包。
+- `package-manifest.json`：包内文件与ZIP的SHA-256。
+- `tests/`：通用工具入口的行为验证。
+
+仓库公开保存skill源码、安装包、学校范本和格式证据；没有上传用户研究论文、数据集或本地运行日志。

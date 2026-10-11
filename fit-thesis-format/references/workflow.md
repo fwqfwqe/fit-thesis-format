@@ -6,7 +6,7 @@
 
 ## 运行环境与清单
 
-使用 `load_workspace_dependencies` 返回的当前Python解释器，助手仅需lxml/标准库。命令中的PYTHON、SKILL、INPUT、OUTPUT、WORK均替换为绝对路径；Windows用PowerShell调用，不硬编码某个Codex版本。
+使用当前环境可执行的Python 3.10+，基础助手仅需lxml/标准库，数学新建助手另需python-docx；完整依赖在包内requirements.txt。宿主有受管理的解释器时遵循其运行规则，否则可使用独立虚拟环境。命令中的PYTHON、SKILL、INPUT、OUTPUT、WORK均替换为当前环境路径，含空格路径作为独立参数传递；不硬编码机器用户名、模型平台或运行时版本。也可通过agent_cli.py提交JSON任务，见agent-protocol.md。
 
 ```text
 PYTHON SKILL/scripts/thesis_format.py inspect INPUT --out WORK/manifest.json
@@ -122,7 +122,7 @@ PYTHON SKILL/scripts/thesis_layout.py verify FINAL --source CITED --map WORK/lay
 - 已知实测限制：原生Word在一个合成样例中，在罗马III之后重启正文1并启用奇偶页眉时，导出插入了一张空白物理页；仅将分节设为nextPage或continuous并不足以消除。助手不能保证不同Word/WPS版本的物理页数一致。遇此情况按目标软件检查分节及打印分页，不暗改原文分页符、整篇兼容设置或手动编号来掩盖；未解决就说明实际空白页，不能宣称版面全部核验通过。
 - 引用核对作者和年份基线、完整方括号上标、标点基线及位置原样；文末编号仍在基线。只改“论文-文献引用上标”样式应能调整选中引用，不能改变普通作者年份或公式符号；正文样式改字号也应带动引用的基础字号。
 - 中文摘要超一页、文献缺失等不通过删字/缩字修复。
-- 渲染最后一次输出并逐页检查。Word可用时优先原生只读导出PDF作为回退；用当前document技能打包渲染器时按其平台依赖规则，不随意安装系统工具。
+- 渲染最后一次输出并逐页检查。优先用户目标软件原生导出；已有Word、其他文档引擎或文档API均可提供渲染能力，具体调用和只读/更新域区别见portable-rendering.md。没有渲染能力时明确剩余检查，不假报全部通过。
 
 ## 交付措辞
 

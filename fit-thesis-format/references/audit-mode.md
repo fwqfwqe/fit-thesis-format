@@ -2,7 +2,7 @@
 
 当用户把论文交来要求“先看看哪里不符合、哪里要改”，先执行审核模式，输出论文外的中文问题清单。审核不是改稿，不更新目录或其他字段，不在正文插入批注、提示或占位词，也不覆盖输入文件。
 
-审核命令（Python 运行时使用本机依赖加载结果）：
+审核命令（使用当前环境中已满足requirements.txt的Python；不依赖特定AI平台）：
 
 ```text
 python scripts/format_audit.py "论文.docx" --json "格式审核.json" --markdown "格式审核.md"

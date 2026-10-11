@@ -1,0 +1,62 @@
+{
+  "manifest_version": 1,
+  "name": "fit-thesis-format",
+  "description": "Vendor-neutral local DOCX format inspection, audit and reviewed content-preserving edits for the included FIT school profile. A host adapter must run the process; this manifest is not itself an API vendor protocol.",
+  "transport": {
+    "type": "local_process",
+    "command": ["python", "scripts/agent_cli.py", "--request", "-"],
+    "working_directory": "skill package root",
+    "stdin": "one UTF-8 JSON object matching the function parameters",
+    "stdout": "one UTF-8 JSON result object",
+    "path_resolution": "All relative paths resolve against the process working directory, including when --request points to a JSON file in another directory.",
+    "exit_codes": {"0": "Requested operation completed; not complete format acceptance", "2": "Invalid request, execution failure or failed check"},
+    "request_file_alternative": ["python", "scripts/agent_cli.py", "--request", "request.json"]
+  },
+  "functions": [
+    {
+      "name": "fit_thesis_format",
+      "description": "Run one whitelisted local action. inspect lists original structures without changing the DOCX; audit writes static findings; apply actions need separately reviewed source-bound maps; verify checks a specific stage against its source; validate_controls checks this package's new-example convention. doctor only discovers capabilities. These actions do not render or certify visual layout.",
+      "parameters": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "action": {"type": "string", "enum": ["doctor", "inspect", "audit", "apply_styles", "verify", "apply_layout", "apply_citations", "validate_controls"]},
+          "scope": {"type": "string", "enum": ["styles", "layout", "citations"], "default": "styles", "description": "Only inspect and verify accept scope."},
+          "source": {"type": "string", "minLength": 1, "description": "Existing source DOCX; each stage uses its exact preceding DOCX."},
+          "output": {"type": "string", "minLength": 1, "description": "New DOCX path for apply actions; existing candidate DOCX path for verify."},
+          "mapping": {"type": "string", "minLength": 1, "description": "Existing reviewed map with source_sha256 matching source. Audit accepts an optional role map. Each action retains its underlying map schema."},
+          "report": {"type": "string", "minLength": 1, "description": "New JSON report path; existing files are never overwritten."},
+          "markdown": {"type": "string", "minLength": 1, "description": "New Markdown report path; required only for audit."},
+          "title": {"type": "string", "minLength": 1, "description": "Optional confirmed thesis title for audit header comparisons."}
+        },
+        "required": ["action"],
+        "additionalProperties": false,
+        "oneOf": [
+          {"properties": {"action": {"const": "doctor"}}, "maxProperties": 1},
+          {"properties": {"action": {"const": "inspect"}}, "required": ["source", "report"], "not": {"anyOf": [{"required": ["output"]}, {"required": ["mapping"]}, {"required": ["markdown"]}, {"required": ["title"]}]}},
+          {"properties": {"action": {"const": "audit"}}, "required": ["source", "report", "markdown"], "not": {"anyOf": [{"required": ["scope"]}, {"required": ["output"]}]}},
+          {"properties": {"action": {"enum": ["apply_styles", "apply_layout", "apply_citations"]}}, "required": ["source", "output", "mapping", "report"], "not": {"anyOf": [{"required": ["scope"]}, {"required": ["markdown"]}, {"required": ["title"]}]}},
+          {"properties": {"action": {"const": "verify"}}, "required": ["source", "output", "mapping", "report"], "not": {"anyOf": [{"required": ["markdown"]}, {"required": ["title"]}]}},
+          {"properties": {"action": {"const": "validate_controls"}}, "required": ["source", "report"], "not": {"anyOf": [{"required": ["scope"]}, {"required": ["output"]}, {"required": ["mapping"]}, {"required": ["markdown"]}, {"required": ["title"]}]}}
+        ]
+      },
+      "result_contract": {
+        "ok": "Whether this requested operation succeeded; audit findings may still contain format problems.",
+        "outputs": "Only actually published output paths, keyed by output, report or markdown.",
+        "error": "On failure: code and message. Detailed checks are in result and any published report.",
+        "render_review_performed": false,
+        "checks": "Static operation outcome, input-file preservation, and explicit not_run rendering/visual review/native field-update status.",
+        "limitations": "Unperformed work and scope restrictions. Success never implies full structure reconstruction or a completed visual review."
+      }
+    }
+  ],
+  "safety": {
+    "network_required": false,
+    "shell_interpolation": false,
+    "source_overwrite": false,
+    "existing_output_overwrite": false,
+    "mapping_validation": "The wrapper checks source_sha256; original tools additionally enforce their own role/region/span schemas and protected-content rules.",
+    "publishing": "Tools write to temporary paths; outputs publish with exclusive file creation. A failed apply does not publish a DOCX. Diagnostic reports may publish even when a check fails.",
+    "review_boundaries": "No host-independent protocol can supply missing file access, Python execution, fonts, DOCX rendering or human-equivalent page inspection. The calling AI must report missing capabilities."
+  }
+}
