@@ -92,6 +92,7 @@ def check_render(final, render_path, pages_path, review_path):
         raise ValueError('Page counts are missing or inconsistent')
     try:
         import pypdfium2 as pdfium
+        from PIL import Image
     except ImportError as exc:
         raise ValueError('PDF page count must be verified independently; install requirements-render.txt for the final delivery check') from exc
     with pdfium.PdfDocument(str(pdf)) as actual_pdf:
@@ -109,6 +110,10 @@ def check_render(final, render_path, pages_path, review_path):
         item, inspected = image_map[number], review_map[number]
         image_path = evidence_path(item.get('file'), pages_path.parent)
         image_hash = sha(image_path)
+        with Image.open(image_path) as picture:
+            if picture.format not in ('PNG', 'JPEG', 'WEBP'):
+                raise ValueError(f'Page {number} must be a readable page image')
+            picture.verify()
         if item.get('sha256', '').lower() != image_hash or inspected.get('image_sha256', '').lower() != image_hash:
             raise ValueError(f'Page {number} image differs from the reviewed image')
         if inspected.get('status') != 'pass' or not isinstance(inspected.get('checks'), dict):

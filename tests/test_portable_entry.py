@@ -3,7 +3,6 @@
 All manuscripts, packages, PDFs and evidence are synthetic temporary fixtures.
 The repository's retained school template is only read/copied into a temp package.
 """
-import base64
 from contextlib import redirect_stdout
 import hashlib
 import importlib.util
@@ -19,6 +18,7 @@ from unittest.mock import patch
 import zipfile
 
 from docx import Document
+from PIL import Image, UnidentifiedImageError
 
 REPO = Path(__file__).resolve().parents[1]
 PACKAGE = REPO / 'fit-thesis-format'
@@ -61,7 +61,7 @@ class PortableEntryTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='fit portable 中文 ')
         self.addCleanup(self.temp.cleanup)
-        self.work = Path(self.temp.name)
+        self.work = Path(self.temp.name).resolve()
         self.source = self.work / 'paper.docx'
         document = Document()
         document.add_paragraph('合成测试论文')
@@ -86,10 +86,11 @@ class PortableEntryTests(unittest.TestCase):
         final_hash, pdf_hash = sha(self.source), sha(pdf)
         render = self.work / 'render.json'; pages = self.work / 'pages.json'; review = self.work / 'review.json'
         image_items, review_items = [], []
-        png = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==')
         for number in range(1, count + 1):
-            image = self.work / ('page-%d.png' % number); image.write_bytes(png)
-            image_items.append({'page': number, 'file': image.name, 'sha256': sha(image), 'width': 1, 'height': 1})
+            image = self.work / ('page-%d.png' % number)
+            with Image.new('RGB', (100, 100), 'white') as picture:
+                picture.save(image, format='PNG')
+            image_items.append({'page': number, 'file': image.name, 'sha256': sha(image), 'width': 100, 'height': 100})
             review_items.append({'page': number, 'image_sha256': sha(image), 'status': 'pass',
                                  'checks': {check: 'pass' for check in DELIVERY.PAGE_CHECKS},
                                  'notes': 'Synthetic evidence fixture; no real thesis acceptance is claimed.'})
@@ -209,6 +210,27 @@ class PortableEntryTests(unittest.TestCase):
                     for name, value in parts.items(): output.writestr(name, value)
                 with self.assertRaises(ValueError): DELIVERY.verify_chain(self.source, base, chain)
 
+    def test_delivery_accepts_complete_two_page_synthetic_evidence(self):
+        render, pages, review = self.evidence(actual_pages=2)
+        result = DELIVERY.check_render(self.source, render, pages, review)
+        self.assertTrue(result['evidence_consistent'])
+        self.assertEqual(result['page_count'], 2)
+        self.assertEqual(result['pdf_sha256'], sha(self.work / 'rendered.pdf'))
+        self.assertFalse(result['visual_inspection_performed_by_this_script'])
+
+    def test_delivery_rejects_invalid_image_even_with_matching_hashes(self):
+        render, pages, review = self.evidence(actual_pages=2)
+        image = self.work / 'page-2.png'
+        image.write_bytes(b'This file is not a PNG despite its extension.')
+        image_manifest = load_json(pages)
+        image_manifest['pages'][1]['sha256'] = sha(image)
+        save_json(pages, image_manifest)
+        page_review = load_json(review)
+        page_review['pages'][1]['image_sha256'] = sha(image)
+        save_json(review, page_review)
+        with self.assertRaisesRegex(UnidentifiedImageError, 'cannot identify image file'):
+            DELIVERY.check_render(self.source, render, pages, review)
+
     def test_delivery_rejects_old_document_and_missing_review_page(self):
         render, pages, review = self.evidence()
         value = load_json(render); value['source_sha256_before'] = '0' * 64; save_json(render, value)
@@ -234,7 +256,7 @@ class PortableEntryTests(unittest.TestCase):
 
     def test_delivery_counts_pages_from_actual_pdf_not_only_claims(self):
         render, pages, review = self.evidence(actual_pages=2, declared_pages=1)
-        with self.assertRaises(ValueError, msg='A real two-page PDF cannot be fully reviewed by one declared page'):
+        with self.assertRaisesRegex(ValueError, 'actual PDF'):
             DELIVERY.check_render(self.source, render, pages, review)
 
     def test_json_prepare_entry_and_delivery_needs_review_are_distinct_from_execution_failure(self):

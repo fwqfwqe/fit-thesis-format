@@ -245,7 +245,7 @@ def execute_workflow(request, request_file=None):
               'delivery_ready':False,'status':'failed','outputs':{},'remaining_steps':list(REMAINING_STEPS),
               'render_review_performed':False,'checks':{'static_operation':'not_run','visual_review':'not_performed_by_this_adapter'}}
     with tempfile.TemporaryDirectory(prefix='fit-workflow-') as temporary:
-        staged=Path(temporary)/'delivery-report.json'
+        staged=Path(temporary).resolve()/'delivery-report.json'
         if action=='prepare':
             arguments=['prepare.py','--source',str(reads['source']),'--work-dir',str(destination)]
         else:
@@ -324,7 +324,12 @@ def execute(request, request_file=None):
         raise RequestError("DEPENDENCY_MISSING", "lxml is required; run doctor and install requirements in the host-approved Python environment")
     snapshots = {key: sha(path) for key, path in reads.items()}
     with tempfile.TemporaryDirectory(prefix="fit-agent-") as temporary:
-        staged = {key: Path(temporary) / (key + (".docx" if key == "output" else ".md" if key == "markdown" else ".json")) for key in writes}
+        # Windows temp paths can use an 8.3 short username while child tools
+        # resolve the same directory to its long spelling. Canonicalize before
+        # invoking them so both stdout and persisted reports use replaceable
+        # paths, never references to a staging directory deleted on return.
+        staging_root=Path(temporary).resolve()
+        staged = {key: staging_root / (key + (".docx" if key == "output" else ".md" if key == "markdown" else ".json")) for key in writes}
         args = command_for(action, scope, request, reads, staged)
         argv = [sys.executable, str(SCRIPTS / args[0]), *args[1:]]
         env = dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
@@ -336,7 +341,7 @@ def execute(request, request_file=None):
         if not all(unchanged.values()):
             response["error"] = {"code": "INPUT_CHANGED", "message": "An input changed during execution; no staged result published"}
             return response
-        replacements = {str(staged[key]): str(path) for key, path in writes.items()}
+        replacements = {str(staged[key].resolve()): str(path.resolve()) for key, path in writes.items()}
         raw = completed.stdout.strip() or completed.stderr.strip()
         protocol_valid=True
         try:

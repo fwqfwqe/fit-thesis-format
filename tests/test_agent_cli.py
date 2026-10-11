@@ -4,6 +4,7 @@ Run at repository root: python -m unittest discover -s tests -p test_agent_cli.p
 The included school template is read only; all outputs use temporary folders.
 """
 import hashlib
+from contextlib import contextmanager
 import json
 from pathlib import Path
 import subprocess
@@ -25,7 +26,7 @@ class AgentCliTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="fit agent 中文 ")
         self.addCleanup(self.temp.cleanup)
-        self.work = Path(self.temp.name)
+        self.work = Path(self.temp.name).resolve()
         self.original_hash = digest(TEMPLATE)
         self.addCleanup(lambda: self.assertEqual(digest(TEMPLATE), self.original_hash))
 
@@ -145,6 +146,42 @@ class AgentCliTests(unittest.TestCase):
         conflict = self.call(dict(request, report="another.json"))
         self.assertEqual(conflict["error"]["code"], "OUTPUT_EXISTS")
         self.assertEqual(digest(self.work / "formatted.docx"), output_hash)
+
+    def test_staging_path_alias_is_replaced_in_result_and_published_report(self):
+        from docx import Document
+        sys.path.insert(0,str(CLI.parent))
+        self.addCleanup(lambda:sys.path.remove(str(CLI.parent)))
+        import agent_cli
+        source=self.work/'alias-source.docx'
+        document=Document();document.add_paragraph('Temporary path alias regression.');document.save(source)
+        mapping=self.work/'alias-map.json'
+        mapping.write_text(json.dumps({'source_sha256':digest(source),'paragraphs':{'p000001':'body'}}),encoding='utf-8')
+        destination=self.work/'alias-formatted.docx';report=self.work/'alias-report.json'
+        original_temporary_directory=tempfile.TemporaryDirectory
+        roots=[]
+
+        @contextmanager
+        def aliased_directory(*args,**kwargs):
+            with original_temporary_directory(*args,**kwargs) as directory:
+                canonical=Path(directory).resolve()
+                (canonical/'alias-anchor').mkdir()
+                actual=canonical/'actual-stage';actual.mkdir();roots.append(actual)
+                # An actual filesystem alias usable on Linux and Windows,
+                # without symlink privileges. The child formatter resolves it,
+                # reproducing the 8.3-short-name -> long-name normalization.
+                yield str(canonical/'alias-anchor'/'..'/'actual-stage')
+
+        with patch.object(agent_cli.tempfile,'TemporaryDirectory',aliased_directory):
+            result=agent_cli.execute({'action':'apply_styles','source':str(source),'output':str(destination),
+                                      'mapping':str(mapping),'report':str(report)})
+        self.assertTrue(result['ok'],result)
+        self.assertTrue(all(not path.exists() for path in roots))
+        self.assertEqual(Path(result['result']['output']),destination)
+        self.assertTrue(Path(result['result']['output']).is_file(), 'Result must never point at deleted staging output')
+        self.assertEqual(Path(result['result']['full_report']),report)
+        saved=json.loads(report.read_text(encoding='utf-8'))
+        self.assertEqual(Path(saved['output']),destination)
+        self.assertTrue(Path(saved['output']).is_file(), 'Published report must never point at deleted staging output')
 
     def test_citation_layout_stages_and_failed_control_report(self):
         from docx import Document
