@@ -11,6 +11,7 @@ import argparse
 import copy
 import hashlib
 import json
+import math
 import re
 from pathlib import Path
 import sys
@@ -220,11 +221,64 @@ def inspect_doc(path):
                      'A source_sha256-bound reviewed map is required; unmapped paragraphs are preserved.',
                      'Existing headers/footers/footnotes/endnotes may be explicitly mapped through story_paragraphs. No story or field creation; comments remain unchanged.']}
 
-def make_styles(styles):
+STYLE_OVERRIDE_KEYS = {'east_asia','western','size_pt','align','before_pt','after_pt',
+    'line_pt','line_rule','indent_chars','left_chars','hanging_chars','bold',
+    'page_break','keep_next','keep_lines','bottom_border_pt','tabs'}
+
+def resolved_style_specs(mapping=None):
+    """Resolve explicit, source-map-reviewed layout exceptions, never text changes.
+
+    style_overrides: {role: {reviewed: true, reason: str, properties: {...}}}.
+    Each exception affects that named style, not arbitrary paragraph/run XML.
+    The same map must be supplied to apply and verify; otherwise school defaults
+    remain the expected values. Names, outline levels and protections are fixed.
+    """
+    overrides = (mapping or {}).get('style_overrides', {})
+    if not isinstance(overrides, dict):raise ValueError('style_overrides must be an object')
+    resolved = {role: SPEC['defaults'] | properties for role,properties in ROLES.items()}
+    for role, item in overrides.items():
+        if role not in ROLES:raise ValueError('Unknown override style role: '+str(role))
+        if (not isinstance(item,dict) or set(item) != {'reviewed','reason','properties'} or
+                item.get('reviewed') is not True or not isinstance(item.get('reason'),str) or not item['reason'].strip()):
+            raise ValueError('Style override requires reviewed=true, a specific reason and properties: '+role)
+        properties=item['properties']
+        if not isinstance(properties,dict) or not properties or set(properties)-STYLE_OVERRIDE_KEYS:
+            raise ValueError('Unsupported or empty style override properties: '+role)
+        if role=='equation' and set(properties)&{'east_asia','western','size_pt','bold'}:
+            raise ValueError('Equation math font/size is protected; paragraph exceptions only')
+        for key,value in properties.items():
+            if key in {'east_asia','western'}:
+                if not isinstance(value,str) or not value.strip():raise ValueError('Invalid font override: '+role+'.'+key)
+            elif key=='align':
+                if value not in ('left','center','right','both','distribute'):raise ValueError('Invalid alignment override: '+role)
+            elif key=='line_rule':
+                if value not in ('exact','atLeast','auto'):raise ValueError('Invalid line rule override: '+role)
+            elif key in {'bold','page_break','keep_next','keep_lines'}:
+                if type(value) is not bool:raise ValueError('Style flag must be boolean: '+role+'.'+key)
+            elif key=='tabs':
+                if not isinstance(value,list):raise ValueError('tabs must be a list: '+role)
+                positions=[]
+                for tab in value:
+                    if (not isinstance(tab,dict) or set(tab)-{'align','position_twips','leader'} or
+                            tab.get('align') not in ('left','center','right','decimal','bar','clear') or
+                            type(tab.get('position_twips')) is not int or tab['position_twips']<0 or
+                            tab.get('leader','none') not in ('none','dot','hyphen','underscore','heavy','middleDot')):
+                        raise ValueError('Invalid tab stop override: '+role)
+                    positions.append(tab['position_twips'])
+                if len(set(positions))!=len(positions):raise ValueError('Duplicate tab positions: '+role)
+            elif type(value) not in (int,float) or not math.isfinite(value) or value<0 or (key in {'size_pt','line_pt'} and value==0):
+                raise ValueError('Style numeric value must be finite and nonnegative (font/line positive): '+role+'.'+key)
+        resolved[role].update(properties)
+        if resolved[role]['line_rule']=='exact' and resolved[role]['line_pt']<resolved[role]['size_pt']:
+            raise ValueError('Exact line height cannot be smaller than the style font size: '+role)
+    return resolved
+
+def make_styles(styles,mapping=None):
+    resolved=resolved_style_specs(mapping)
     for priority,(role,over) in enumerate(ROLES.items(),1):
         sid=style_id(role); old=styles.find(f'w:style[@w:styleId="{sid}"]',NS)
         if old is not None: styles.remove(old)
-        sp=SPEC['defaults']|over
+        sp=resolved[role]
         st=child(styles,'style',type='paragraph',styleId=sid,customStyle='1')
         child(st,'name',val=sp['name']); child(st,'basedOn',val='Normal')
         child(st,'next',val=style_id('body')); child(st,'uiPriority',val=priority); child(st,'qFormat')
@@ -237,6 +291,10 @@ def make_styles(styles):
         child(pp,'widowControl',val='1')
         if sp.get('bottom_border_pt'):
             pb=child(pp,'pBdr'); child(pb,'bottom',val='single',sz=round(sp['bottom_border_pt']*8),space=1,color='000000')
+        if sp.get('tabs'):
+            tabs=child(pp,'tabs')
+            for tab in sorted(sp['tabs'],key=lambda item:item['position_twips']):
+                child(tabs,'tab',val=tab['align'],pos=tab['position_twips'],leader=tab.get('leader','none'))
         child(pp,'snapToGrid',val='0')
         child(pp,'spacing',before=round(sp['before_pt']*20),after=round(sp['after_pt']*20),line=round(sp['line_pt']*20),lineRule=sp['line_rule'])
         ind=child(pp,'ind',left=0,right=0,firstLine=0,firstLineChars=round(sp['indent_chars']*100))
@@ -343,12 +401,45 @@ def validate_paragraph_roles(pmap,ps,context='document'):
 
 def validate_map(mapping,source,ps,ts,parts):
     if mapping.get('source_sha256')!=sha(Path(source).read_bytes()):raise ValueError('Map source_sha256 missing or stale. Inspect the exact source and review the map again.')
+    resolved_style_specs(mapping)
     validate_paragraph_roles(mapping.get('paragraphs'),ps)
     for tid,opts in mapping.get('tables',{}).items():
         if tid not in ts:raise ValueError('Unknown table ID '+tid)
         if opts.get('kind') not in ('three-line','complex'):raise ValueError('Table kind must be three-line or complex')
     for name,root in selected_stories(parts,mapping).items():
         validate_paragraph_roles(mapping['story_paragraphs'][name],indexed(root)[0],name)
+    if not (mapping.get('paragraphs') or mapping.get('tables') or any(mapping.get('story_paragraphs',{}).values())):
+        raise ValueError('Empty formatting map: select at least one reviewed paragraph, table or story paragraph. No DOCX was changed.')
+
+def format_property_signature(element):
+    """Compare semantic property values independently of XML property order.
+
+    This is deliberately limited to the package's generated named styles.
+    Local run emphasis, superscripts, existing cover paragraph layout and OMML
+    formatting are handled by the existing preservation checks, not flattened.
+    """
+    if element is None:return None
+    boolean_names={'b','bCs','keepNext','keepLines','pageBreakBefore','widowControl','snapToGrid','contextualSpacing'}
+    attrs=dict(element.attrib)
+    if E.QName(element).localname in boolean_names:
+        attrs[q('val')]='0' if attrs.get(q('val'),'1') in ('0','false','off') else '1'
+    return (element.tag,tuple(sorted(attrs.items())),
+            tuple(sorted((format_property_signature(c) for c in element if isinstance(c.tag,str)),key=repr)))
+
+def verify_style_values(styles,mapping=None):
+    expected=E.Element(q('styles'));make_styles(expected,mapping)
+    errors=[]
+    for wanted in expected.findall(q('style')):
+        sid=wanted.get(q('styleId'));actual=styles.find(f'w:style[@w:styleId="{sid}"]',NS)
+        if actual is None:continue # Existing gallery checks report the missing style.
+        if actual.get(q('type'))!='paragraph':errors.append('Wrong style type: '+sid)
+        for container in ('name','basedOn','pPr','rPr'):
+            if format_property_signature(actual.find(q(container)))!=format_property_signature(wanted.find(q(container))):
+                errors.append('Style format differs from school specification/reviewed override: '+sid+'/'+container)
+        flag=actual.find(q('autoRedefine'))
+        if flag is not None and flag.get(q('val'),'1') not in ('0','false','off'):
+            errors.append('Style automatically redefines from local formatting: '+sid)
+    return errors
 
 def verify_paragraph_roles(ps,pmap,context='document'):
     errors=[]
@@ -371,6 +462,7 @@ def verify_doc(path,source=None,mapping=None):
     parts=package(path);root=parse(parts['word/document.xml']);styles=parse(parts['word/styles.xml']);ps,ts=indexed(root)
     errors=[];warnings=[]; inv=inventory(parts)
     story_roots=selected_stories(parts,mapping) if mapping else {}
+    errors.extend(verify_style_values(styles,mapping))
     for role in ROLES:
         st=styles.find(f'w:style[@w:styleId="{style_id(role)}"]',NS)
         if st is None:errors.append('Missing style '+role);continue
@@ -426,7 +518,7 @@ def apply_doc(source,destination,mapping,report):
     parts=package(src);root=parse(parts['word/document.xml']);styles=parse(parts['word/styles.xml']);ps,ts=indexed(root)
     validate_map(mapping,src,ps,ts,parts);style_index={s.get(q('styleId')):copy.deepcopy(s) for s in styles.findall(q('style'))}
     numbering=parse(parts['word/numbering.xml']) if 'word/numbering.xml' in parts else None
-    make_styles(styles);warnings=[]
+    make_styles(styles,mapping);warnings=[]
     for pid,item in mapping['paragraphs'].items():format_p(ps[pid],item if isinstance(item,str) else item['role'],style_index,numbering,warnings,pid)
     for tid,opts in mapping.get('tables',{}).items():format_table(ts[tid],opts)
     story_roots=selected_stories(parts,mapping)

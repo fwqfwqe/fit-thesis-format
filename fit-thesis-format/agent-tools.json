@@ -4,49 +4,309 @@
   "description": "Vendor-neutral local DOCX format inspection, audit and reviewed content-preserving edits for the included FIT school profile. A host adapter must run the process; this manifest is not itself an API vendor protocol.",
   "transport": {
     "type": "local_process",
-    "command": ["python", "scripts/agent_cli.py", "--request", "-"],
+    "command": [
+      "python",
+      "scripts/agent_cli.py",
+      "--request",
+      "-"
+    ],
     "working_directory": "skill package root",
     "stdin": "one UTF-8 JSON object matching the function parameters",
     "stdout": "one UTF-8 JSON result object",
     "path_resolution": "All relative paths resolve against the process working directory, including when --request points to a JSON file in another directory.",
-    "exit_codes": {"0": "Requested operation completed; not complete format acceptance", "2": "Invalid request, execution failure or failed check"},
-    "request_file_alternative": ["python", "scripts/agent_cli.py", "--request", "request.json"]
+    "exit_codes": {
+      "0": "Operation completed, including delivery_check with needs_review; read delivery_ready and blocking_items.",
+      "2": "Invalid request, execution failure or failed check"
+    },
+    "request_file_alternative": [
+      "python",
+      "scripts/agent_cli.py",
+      "--request",
+      "request.json"
+    ]
   },
   "functions": [
     {
       "name": "fit_thesis_format",
-      "description": "Run one whitelisted local action. inspect lists original structures without changing the DOCX; audit writes static findings; apply actions need separately reviewed source-bound maps; verify checks a specific stage against its source; validate_controls checks this package's new-example convention. doctor only discovers capabilities. These actions do not render or certify visual layout.",
+      "description": "Prepare and inspect a paper, run reviewed content-preserving formatting steps, and recheck delivery evidence. prepare creates a new read-only inspection workspace. Basic actions always have delivery_ready=false. Only delivery_check can report readiness after fresh content/static checks and hash-bound rendering/page-review evidence; a completed check can still return needs_review.",
       "parameters": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
-          "action": {"type": "string", "enum": ["doctor", "inspect", "audit", "apply_styles", "verify", "apply_layout", "apply_citations", "validate_controls"]},
-          "scope": {"type": "string", "enum": ["styles", "layout", "citations"], "default": "styles", "description": "Only inspect and verify accept scope."},
-          "source": {"type": "string", "minLength": 1, "description": "Existing source DOCX; each stage uses its exact preceding DOCX."},
-          "output": {"type": "string", "minLength": 1, "description": "New DOCX path for apply actions; existing candidate DOCX path for verify."},
-          "mapping": {"type": "string", "minLength": 1, "description": "Existing reviewed map with source_sha256 matching source. Audit accepts an optional role map. Each action retains its underlying map schema."},
-          "report": {"type": "string", "minLength": 1, "description": "New JSON report path; existing files are never overwritten."},
-          "markdown": {"type": "string", "minLength": 1, "description": "New Markdown report path; required only for audit."},
-          "title": {"type": "string", "minLength": 1, "description": "Optional confirmed thesis title for audit header comparisons."}
+          "action": {
+            "type": "string",
+            "enum": [
+              "doctor",
+              "inspect",
+              "audit",
+              "apply_styles",
+              "verify",
+              "apply_layout",
+              "apply_citations",
+              "validate_controls",
+              "prepare",
+              "delivery_check"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "styles",
+              "layout",
+              "citations"
+            ],
+            "default": "styles",
+            "description": "Only inspect and verify accept scope."
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Existing source DOCX; each stage uses its exact preceding DOCX."
+          },
+          "output": {
+            "type": "string",
+            "minLength": 1,
+            "description": "New DOCX path for apply actions; existing candidate/final DOCX for verify or delivery_check."
+          },
+          "mapping": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Existing reviewed map with source_sha256 matching source. Audit accepts an optional role map. Each action retains its underlying map schema."
+          },
+          "report": {
+            "type": "string",
+            "minLength": 1,
+            "description": "New JSON report path; existing files are never overwritten."
+          },
+          "markdown": {
+            "type": "string",
+            "minLength": 1,
+            "description": "New Markdown report path; required only for audit."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional confirmed thesis title for audit header comparisons."
+          },
+          "work_dir": {
+            "type": "string",
+            "minLength": 1,
+            "description": "New working directory for prepare; must not exist."
+          },
+          "chain": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional source-to-final stage-chain JSON for delivery_check; verifiers are replayed."
+          },
+          "render_manifest": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Actual document export report for delivery_check, bound to final DOCX and PDF hashes."
+          },
+          "page_manifest": {
+            "type": "string",
+            "minLength": 1,
+            "description": "All-page PNG manifest for delivery_check, bound to PDF and image hashes."
+          },
+          "review": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Completed per-page review JSON for delivery_check; missing or inconsistent evidence blocks readiness."
+          }
         },
-        "required": ["action"],
+        "required": [
+          "action"
+        ],
         "additionalProperties": false,
         "oneOf": [
-          {"properties": {"action": {"const": "doctor"}}, "maxProperties": 1},
-          {"properties": {"action": {"const": "inspect"}}, "required": ["source", "report"], "not": {"anyOf": [{"required": ["output"]}, {"required": ["mapping"]}, {"required": ["markdown"]}, {"required": ["title"]}]}},
-          {"properties": {"action": {"const": "audit"}}, "required": ["source", "report", "markdown"], "not": {"anyOf": [{"required": ["scope"]}, {"required": ["output"]}]}},
-          {"properties": {"action": {"enum": ["apply_styles", "apply_layout", "apply_citations"]}}, "required": ["source", "output", "mapping", "report"], "not": {"anyOf": [{"required": ["scope"]}, {"required": ["markdown"]}, {"required": ["title"]}]}},
-          {"properties": {"action": {"const": "verify"}}, "required": ["source", "output", "mapping", "report"], "not": {"anyOf": [{"required": ["markdown"]}, {"required": ["title"]}]}},
-          {"properties": {"action": {"const": "validate_controls"}}, "required": ["source", "report"], "not": {"anyOf": [{"required": ["scope"]}, {"required": ["output"]}, {"required": ["mapping"]}, {"required": ["markdown"]}, {"required": ["title"]}]}}
+          {
+            "properties": {
+              "action": {
+                "const": "doctor"
+              }
+            },
+            "required": [
+              "action"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "properties": {
+              "action": {
+                "const": "inspect"
+              },
+              "source": {},
+              "report": {},
+              "scope": {}
+            },
+            "required": [
+              "action",
+              "source",
+              "report"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "properties": {
+              "action": {
+                "const": "audit"
+              },
+              "source": {},
+              "report": {},
+              "markdown": {},
+              "mapping": {},
+              "title": {}
+            },
+            "required": [
+              "action",
+              "source",
+              "report",
+              "markdown"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "properties": {
+              "action": {
+                "const": "apply_styles"
+              },
+              "source": {},
+              "output": {},
+              "mapping": {},
+              "report": {}
+            },
+            "required": [
+              "action",
+              "source",
+              "output",
+              "mapping",
+              "report"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "properties": {
+              "action": {
+                "const": "apply_layout"
+              },
+              "source": {},
+              "output": {},
+              "mapping": {},
+              "report": {}
+            },
+            "required": [
+              "action",
+              "source",
+              "output",
+              "mapping",
+              "report"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "properties": {
+              "action": {
+                "const": "apply_citations"
+              },
+              "source": {},
+              "output": {},
+              "mapping": {},
+              "report": {}
+            },
+            "required": [
+              "action",
+              "source",
+              "output",
+              "mapping",
+              "report"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "properties": {
+              "action": {
+                "const": "verify"
+              },
+              "source": {},
+              "output": {},
+              "mapping": {},
+              "report": {},
+              "scope": {}
+            },
+            "required": [
+              "action",
+              "source",
+              "output",
+              "mapping",
+              "report"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "properties": {
+              "action": {
+                "const": "validate_controls"
+              },
+              "source": {},
+              "report": {}
+            },
+            "required": [
+              "action",
+              "source",
+              "report"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "properties": {
+              "action": {
+                "const": "prepare"
+              },
+              "source": {},
+              "work_dir": {}
+            },
+            "required": [
+              "action",
+              "source",
+              "work_dir"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "properties": {
+              "action": {
+                "const": "delivery_check"
+              },
+              "source": {},
+              "output": {},
+              "report": {},
+              "chain": {},
+              "render_manifest": {},
+              "page_manifest": {},
+              "review": {}
+            },
+            "required": [
+              "action",
+              "source",
+              "output",
+              "report"
+            ],
+            "additionalProperties": false
+          }
         ]
       },
       "result_contract": {
-        "ok": "Whether this requested operation succeeded; audit findings may still contain format problems.",
-        "outputs": "Only actually published output paths, keyed by output, report or markdown.",
+        "ok": "Compatibility alias for operation_succeeded, never a format-compliance or completion claim.",
+        "operation_succeeded": "The requested operation completed. delivery_check with unresolved blockers still has operation_succeeded=true and delivery_ready=false.",
+        "delivery_ready": "Always false for preparation/basic actions. delivery_check forwards the independent checker verdict only; inspect blocking_items and review limitations.",
+        "status": "Preparation: awaiting_mapping_review or preparation_failed. Basic actions: failed, capabilities_checked or operation_completed_not_delivery. Delivery: needs_review or checks_passed_with_review_record.",
+        "remaining_steps": "Explicit remaining coverage, source-chain, native document opening/rendering, page inspection and delivery checks.",
+        "outputs": "Only existing output paths: work_dir/report for prepare, report for delivery_check, output/report/markdown for basic actions. Failed prepare can retain diagnostic partial outputs.",
         "error": "On failure: code and message. Detailed checks are in result and any published report.",
         "render_review_performed": false,
         "checks": "Static operation outcome, input-file preservation, and explicit not_run rendering/visual review/native field-update status.",
-        "limitations": "Unperformed work and scope restrictions. Success never implies full structure reconstruction or a completed visual review."
+        "limitations": "Unperformed work and scope restrictions. Success never implies full structure reconstruction or a completed visual review.",
+        "blocking_items": "delivery_check findings that prevent a completion claim, copied from the freshly generated report."
       }
     }
   ],
@@ -55,8 +315,10 @@
     "shell_interpolation": false,
     "source_overwrite": false,
     "existing_output_overwrite": false,
-    "mapping_validation": "The wrapper checks source_sha256; original tools additionally enforce their own role/region/span schemas and protected-content rules.",
-    "publishing": "Tools write to temporary paths; outputs publish with exclusive file creation. A failed apply does not publish a DOCX. Diagnostic reports may publish even when a check fails.",
+    "mapping_validation": "The wrapper checks source_sha256; original tools enforce their own role/region/span schemas and protected-content rules. apply_styles rejects empty paragraph/table/story selections. Partial mappings are supported, but do not satisfy full task coverage.",
+    "style_exceptions": "Optional mapping.style_overrides={role:{reviewed:true,reason:nonempty string,properties:{...}}} allows explicit layout-only named-style exceptions. The same source-bound map is required for apply and verify; names, outline and content protections are not overrideable. Unrecorded style font/spacing changes fail verification.",
+    "tool_success_protocol": "Requires explicit boolean ok/passed from basic scripts and operation_succeeded/delivery_ready from workflow scripts. delivery_check exit 3 means the check ran and found blockers, not tool execution failure.",
+    "publishing": "Basic tools and delivery reports stage into temporary paths and publish exclusively. Delivery reports are copied byte-for-byte without changing fresh hashes. prepare owns its new directory and records partial failures there; it never publishes a formatted DOCX.",
     "review_boundaries": "No host-independent protocol can supply missing file access, Python execution, fonts, DOCX rendering or human-equivalent page inspection. The calling AI must report missing capabilities."
   }
 }

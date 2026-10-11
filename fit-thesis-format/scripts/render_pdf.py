@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.metadata
 import json
 from pathlib import Path
 
@@ -55,7 +56,7 @@ def main() -> None:
                 picture = bitmap.to_pil()
                 filename = f"page-{index + 1:03d}.png"
                 picture.save(destination / filename)
-                pages.append({"page": index + 1, "file": filename, "width": picture.width, "height": picture.height})
+                pages.append({"page": index + 1, "file": filename, "sha256": digest(destination / filename), "width": picture.width, "height": picture.height})
             finally:
                 if picture is not None:
                     picture.close()
@@ -67,7 +68,18 @@ def main() -> None:
     after = digest(source)
     if before != after:
         raise RuntimeError("Source PDF changed during rendering; do not deliver this run.")
-    result = {"input": str(source), "input_sha256": before, "source_unchanged": True, "dpi": args.dpi, "page_count": len(pages), "pages": pages}
+    result = {
+        "schema_version": 2,
+        "engine": "pypdfium2",
+        "engine_version": importlib.metadata.version("pypdfium2"),
+        "input": str(source),
+        "input_sha256": before,
+        "pdf_sha256": before,
+        "source_unchanged": True,
+        "dpi": args.dpi,
+        "page_count": len(pages),
+        "pages": pages,
+    }
     (destination / "manifest.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"output_directory": str(destination), "page_count": len(pages), "source_unchanged": True}, ensure_ascii=False))
 

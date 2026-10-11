@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 CLI = ROOT / "fit-thesis-format" / "scripts" / "agent_cli.py"
@@ -42,6 +43,9 @@ class AgentCliTests(unittest.TestCase):
         result = json.loads(completed.stdout)
         self.assertEqual(completed.returncode, 0 if result["ok"] else 2)
         self.assertFalse(result["render_review_performed"])
+        self.assertFalse(result["delivery_ready"])
+        self.assertEqual(result["operation_succeeded"], result["ok"])
+        self.assertIn("remaining_steps", result)
         return result
 
     def test_doctor_no_document_needed(self):
@@ -93,6 +97,32 @@ class AgentCliTests(unittest.TestCase):
         self.assertFalse((self.work / "new.docx").exists())
         result = self.call({"action": "verify", "output": str(TEMPLATE), "report": "verify.json"})
         self.assertEqual(result["error"]["code"], "INVALID_REQUEST")
+
+    def test_empty_map_is_not_reported_as_a_formatted_thesis(self):
+        mapping = self.work / "empty-map.json"
+        mapping.write_text(json.dumps({"source_sha256": self.original_hash, "paragraphs": {}}), encoding="utf-8")
+        result = self.call({"action": "apply_styles", "source": str(TEMPLATE), "output": "empty.docx",
+                            "mapping": str(mapping), "report": "empty-report.json"})
+        self.assertFalse(result["ok"])
+        self.assertIn("Empty formatting map", result["result"]["error"])
+        self.assertEqual(result["status"], "failed")
+        self.assertFalse((self.work / "empty.docx").exists())
+
+    def test_zero_exit_missing_or_nonboolean_success_is_not_success(self):
+        sys.path.insert(0, str(CLI.parent))
+        self.addCleanup(lambda: sys.path.remove(str(CLI.parent)))
+        import agent_cli
+        for value in ({"message": "done"}, {"ok": "true"}, {"passed": True}, [True]):
+            with self.subTest(value=value):
+                completed = subprocess.CompletedProcess([], 0, json.dumps(value), "")
+                with patch.object(agent_cli.subprocess, "run", return_value=completed):
+                    result = agent_cli.execute({"action": "inspect", "source": str(TEMPLATE),
+                                                "report": str(self.work / "protocol.json")})
+                self.assertFalse(result["ok"])
+                self.assertFalse(result["operation_succeeded"])
+                self.assertFalse(result["delivery_ready"])
+                self.assertEqual(result["error"]["code"], "TOOL_PROTOCOL_ERROR")
+                self.assertFalse((self.work / "protocol.json").exists())
 
     def test_apply_and_verify_keep_content_and_new_paths(self):
         inspected = self.call({"action": "inspect", "source": str(TEMPLATE), "report": "roles.json"})

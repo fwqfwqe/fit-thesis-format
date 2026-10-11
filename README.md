@@ -1,71 +1,73 @@
-# 福州理工学院论文格式 · 通用Agent版
+# 福州理工学院论文格式 · v6
 
-**v5** 将学校论文格式规则和执行工具做成独立文件包。能读取文件并调用代码或文档工具的AI/Agent，都可以接入这套流程；无需绑定某个模型、账号或专有插件。排版仍按福州理工学院经济管理学院要求，研究内容保持原样。
+**如果用户只发了这个 GitHub 链接，先读下面的启动指南，取得并校验完整包，再检查自己的执行能力。只读到首页，不能开始重新生成论文。**
 
-[下载 v5 通用包](dist/fit-thesis-format-v5.zip) · [AI读取入口](fit-thesis-format/SKILL.md) · [通用执行协议](fit-thesis-format/references/agent-protocol.md) · [函数调用参数](fit-thesis-format/agent-tools.json)
+[AI 单文件启动指南](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/fit-thesis-format/START_HERE.md) · [下载 v6 完整包](https://github.com/fwqfwqe/fit-thesis-format/releases/download/v6/fit-thesis-format-v6.zip) · [当前包校验清单](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/package-manifest.json) · [下载校验工具](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/bootstrap.py)
+
+本项目提供福州理工学院经济管理学院的格式规则、模板和执行工具，不绑定 AI 品牌。**能否完成排版，取决于当前会话实际拥有的文件、代码、文档和看图工具。** GPT 网页版、WorkBuddy 或其他 Agent 都按实际能力检查，不根据产品名字承诺成功。
+
+## 用户怎么用
+
+把本仓库链接和原始论文 DOCX 一起交给 AI，并说：
+
+> 先按仓库的 START_HERE.md 取得并校验完整包，检查当前工具能做什么。用 prepare 建立原稿基线并审核，然后在副本上只改格式。不要从提取文字重新生成我的论文，不要丢失公式、目录、编号、图片、脚注或引用。最后核对内容并逐页检查；做不到的环节要明确说明，未验收文件不能说成已完成。
+
+如果 AI 只能浏览网页，它可以解释规则；如果它能读取论文、执行脚本或使用文档工具，才可以继续实际审核、修改。网络下载不可用但能读取 ZIP 附件时，可以把**完整 ZIP 和论文 DOCX**交给它，不能仅上传 `SKILL.md` 代替模板和脚本。
 
 ## 工作流程，用最简单的话说
 
-1. **收论文、留原稿。** 保存原文件，在副本上工作。
-2. **检查格式。** 对照学校要求，找出哪里要改。
-3. **只改格式。** 调整标题、字体、页眉页码、公式、图表和引用样式。
-4. **核对内容。** 对照原稿，检查文字、数字、公式和参考文献有没有被改动。
-5. **逐页看一遍。** 检查错页、挤压、截断和编号。
-6. **交付。** 给你可编辑的Word和问题说明。
+1. **拿齐工具。** 下载完整包，检查有没有缺文件、下载错版本。
+2. **留下原稿。** 保存副本和内容记录，先找出格式问题。
+3. **确认每一段是什么。** 分清标题、正文、公式、图表和参考文献，再修改副本。
+4. **核对内容。** 检查文字、数字、公式、图片和引用有没有丢失或改变。
+5. **逐页看。** 检查实际页眉、分页、目录、公式和图表。
+6. **交付。** 给可编辑 Word 和真实的检查结果；未验收就明确标为未验收。
 
-只要求审核时，执行检查并给问题清单。完整排版还需要相应的文件修改、DOCX导出和逐页查看工具；能力不足的部分会明确列出。
+## 有 Python 的 Agent：从这里运行
 
-## 给任意AI使用
-
-解压完整包，让AI能访问其中的文件，再把论文DOCX交给它，并发这段话：
-
-> 先读取这个文件夹里的SKILL.md，再按里面的流程处理我的论文。只改格式，研究内容不改；先审核，再修改副本，核对内容，逐页检查，最后给我可编辑的Word和修改说明。如果我只要求审核，就只输出问题清单。
-
-支持skill的Agent可以把`fit-thesis-format`文件夹交给自己的skill加载器；不支持skill机制的AI，直接读取Markdown说明并调用自己的文件/代码/文档工具即可。`agents/openai.yaml`只是可选界面配置。
-
-原有Codex用户仍可把文件夹放入`~/.codex/skills/`，在新对话使用`$fit-thesis-format`。
-
-## 通用工具调用
-
-核心脚本适用于Python 3.10+。本次实测Python 3.12.14，依赖为lxml 6.1.1和python-docx 1.2.0：
+需要 Python 3.10+。先用已有下载工具把上面的 `bootstrap.py` 保存到本地，再执行：
 
 ```text
-python -m pip install -r fit-thesis-format/requirements.txt
-python fit-thesis-format/scripts/agent_cli.py --request task.json
+python bootstrap.py --dest package-new
 ```
 
-`task.json`审核示例：
+`package-new` 必须尚不存在。下载工具使用标准库取得仓库**当前**校验清单和对应 ZIP，逐项校验后解压到 `package-new/fit-thesis-format/`。记录实际取得的版本；不要把不同版本的 ZIP、清单或规则混用。离线方式及固定 v6 的用法见[启动指南](fit-thesis-format/START_HERE.md)。
 
-```json
-{
-  "action":"audit",
-  "source":"论文.docx",
-  "report":"work/格式审核.json",
-  "markdown":"work/格式审核.md"
-}
+在已经满足依赖的环境直接运行；缺依赖且宿主允许安装时，使用包内 `requirements.txt`：
+
+```text
+python -m pip install -r package-new/fit-thesis-format/requirements.txt
+python package-new/fit-thesis-format/scripts/prepare.py --source "论文.docx" --work-dir work-new
 ```
 
-入口返回一个JSON结果，所有相对路径基于调用进程的工作目录。函数调用型AI将[工具schema](fit-thesis-format/agent-tools.json)按所在框架注册，再把参数转发给该入口，也可通过标准输入传入。接入示例和完整动作见[通用执行协议](fit-thesis-format/references/agent-protocol.md)。
+`prepare` 只读原稿，在新的工作目录生成原稿副本、内容基线、三份结构清单、审核报告、待审映射草稿和 `START.md` 操作步骤。**它不会完成排版；草稿不能未经阅读和确认就用于修改。** 原有公式、自动编号、目录域和复杂对象需要按原结构保留，不能重建成普通文字。
 
-工具包括环境探测、原稿清单、静态审核、样式修改、引用格式修改、页眉页脚布局、内容核验和编号/公式结构检查。Agent仍需阅读原文、确定段落角色和授权范围，不能把基础脚本当成所有论文的一键转换器。
+修改工具与映射规则见[通用执行协议](fit-thesis-format/references/agent-protocol.md)和[基础助手](fit-thesis-format/references/workflow.md)。工具参数 [agent-tools.json](fit-thesis-format/agent-tools.json) 是接入说明，打开它不会自动给聊天软件安装可调用工具。
 
-## 渲染与手调
+候选文件生成后，重新检查，而不是复用修改前的审核结果：
 
-可以使用已有Word、文档API或其他DOCX渲染工具。包内提供独立的Windows Word只读导出脚本和可选PDF转图片脚本，调用与依赖见[便携渲染说明](fit-thesis-format/references/portable-rendering.md)。不同引擎的分页与公式兼容性须按实际结果检查。
+```text
+python package-new/fit-thesis-format/scripts/delivery_check.py --source "论文.docx" --final "work-new/candidate.docx" --report "work-new/delivery-check.json"
+```
 
-Word中可通过“开始→样式→修改”统一手调。数学文字与公式编号也有各自的字符样式。静态脚本成功不代表已经逐页看过，未完成视觉核验会明确报告。
+没有渲染证据与逐页检查记录时，只能报告已完成的静态检查。完整交付证据的参数见[通用执行协议](fit-thesis-format/references/agent-protocol.md)；学校封面替换、公式转写等结构转换需要专门保留和核验，不能用一句“允许变化”跳过保护检查。
 
-## 保留的格式要求
+## 没有 Python 或 Word 时
 
-学校封面和诚信承诺书；四级自动编号及两级目录；真实奇偶页眉与连续页码；可编辑公式、正确上下标和完整“公式（x-x）”；独立公式不用表格、文本框或边框；正文引用编号上标，作者年份保持基线；已有附录完整保留并放在最后的致谢之前。
+| 当前实际能力 | 可以完成什么 |
+| --- | --- |
+| 只有网页浏览 | 读取规则、说明准备材料；不能声称已修改论文。 |
+| 附件只可提取文字 | 给文字层面的提示；不能确认 Word 字号、公式对象和分页。 |
+| 文件与 Python | 静态审核、经过角色映射的格式修改及内容核验。 |
+| 文档 API，可读写并导出 DOCX | 先实测它是否保留公式、编号、域、分节和嵌入对象，再执行支持的修改。 |
+| DOCX 渲染工具和看图能力 | 实际检查页面；记录使用的引擎和检查范围。 |
 
-研究文字、数据、公式含义、引用条目和附录代码不改写。目录、编号表示及已授权学校组件的转换单独记录。只审核时不修改论文，缺少内容时不自动补写。
+没有 Microsoft Word 时可以使用已有文档引擎；不同引擎的分页、字体和公式表现不保证相同。有工具调用能力也不意味着以上能力都存在。缺少保护原文所需的能力时，保留原稿并交付可完成的审核，不能通过重新手写一份 DOCX 来绕过。
 
-## 文件
+## 格式与手调
 
-- `fit-thesis-format/`：完整通用skill、工具schema、脚本、要求、范本与依赖文件。
-- `dist/fit-thesis-format-v5.zip`：与当前源文件逐项校验的通用包。
-- `package-manifest.json`：包内文件与ZIP的SHA-256。
-- `tests/`：通用工具入口的行为验证。
+保留学校封面和诚信承诺书、四级自动编号、两级目录、真实奇偶页眉、连续页码、可编辑公式和完整“公式（x-x）”。独立公式不用表格、文本框或边框；正文引用编号上标，作者年份保持基线；已有附录保留并置于最后的致谢之前。
 
-仓库公开保存skill源码、安装包、学校范本和格式证据；没有上传用户研究论文、数据集或本地运行日志。
+Word 中通过“开始→样式→修改”统一手调。详细要求在[完整 skill](fit-thesis-format/SKILL.md)，渲染方法和证据记录在[便携渲染说明](fit-thesis-format/references/portable-rendering.md)。支持 skill 的宿主可加载完整文件夹；`agents/openai.yaml` 是可选界面配置。
+
+仓库包含执行工具和学校格式资料，没有上传用户研究论文、数据集或运行日志。哈希可以确认使用的是同一份文件，不能证明 AI 真的看过每一页。

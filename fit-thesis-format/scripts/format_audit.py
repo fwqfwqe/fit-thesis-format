@@ -116,6 +116,39 @@ def fields(container):
     return result
 
 
+def plain_math_candidates(p):
+    """Return review candidates, never an instruction to transcribe mathematics.
+
+    Only ordinary text is considered. Paths, URLs and code-looking runs are
+    excluded; an underscore alone is not enough to identify a formula.
+    """
+    chunks = []
+    for run in p.iter(q("r")):
+        if any(a.tag.startswith("{" + M + "}") for a in run.iterancestors()):
+            continue
+        value = text(run)
+        if value:
+            chunks.append(value)
+    value = "".join(chunks)
+    value = re.sub(r"(?:https?://|www\.)\S+|[A-Za-z]:[\\/]\S+|\S+[\\/]\S+", " ", value)
+    value = re.sub(r"\b[A-Za-z0-9_]+\.(?:py|csv|json|txt|docx|pdf|xlsx)\b", " ", value, flags=re.I)
+    if re.search(r"^\s*(?:def |import |from \S+ import |for |if |return |SELECT |UPDATE )", value, re.I):
+        return []
+    atom = r"[A-Za-zΑ-Ωα-ω][A-Za-zΑ-Ωα-ω0-9]*(?:[_^](?:\{[A-Za-z0-9,+ -]+\}|[A-Za-z0-9]+))*"
+    relation = re.compile(atom + r"\s*[=＝≈≠≤≥]\s*(?:" + atom + r"|[-−]?\d+(?:[.．]\d+)?(?:[eE][+-]?\d+)?)")
+    candidates = [m.group() for m in relation.finditer(value)]
+    if re.search(r"变量|系数|公式|函数|模型|下标|上标|\b(?:variable|coefficient|equation|model)\b", value, re.I):
+        for match in re.finditer(atom, value):
+            token = match.group()
+            if "_" not in token and "^" not in token: continue
+            base, suffix = re.split(r"[_^]", token, maxsplit=1)
+            conventional = len(base) <= 3 and re.fullmatch(r"\{?[a-z0-9,+ -]{1,6}\}?", suffix)
+            adjacent_definition = re.search(r"(?:变量|系数|下标|上标|variable|coefficient)\s*(?:为|是|如|包括)?\s*$", value[max(0,match.start()-20):match.start()], re.I)
+            if conventional or adjacent_definition:
+                candidates.append(token)
+    return list(dict.fromkeys(candidates))[:8]
+
+
 class Audit:
     def __init__(self, source, mapping=None, title=None):
         self.source = Path(source).resolve()
@@ -311,6 +344,10 @@ class Audit:
                 role = "equation"
             elif p.findall(".//w:drawing", NS) and not s:
                 role = "figure"
+            if item is None and appendix and role in NUMBER_TARGETS and re.fullmatch(r"附录[一二三四五六七八九十A-Z0-9]+", clean(s)):
+                # A label inside an existing appendix/code container is not a
+                # main-body section just because it was assigned that style.
+                role, confidence, basis = "appendix_subheading", "high", "已有附录内的分项标题"
             if role == "cn_abstract_heading":
                 cn_abstract_idx = index; abstract_region = "cn_abstract"; toc_region = ref_region = False
             elif role == "en_abstract_heading":
@@ -500,9 +537,10 @@ class Audit:
     def section_break_before(self, p):
         # Check direct body siblings only; a table's cell break is not a document break.
         prior = p.getprevious()
-        while prior is not None and prior.tag == q("p") and not text(prior).strip():
+        while prior is not None and prior.tag == q("p"):
             sec = prior.find("w:pPr/w:sectPr", NS)
             if sec is not None and val(sec.find(q("type")), default="nextPage") in {"nextPage", "oddPage", "evenPage"}: return True
+            if text(prior).strip(): break
             if prior.find(".//w:br[@w:type='page']", NS) is not None: return True
             prior = prior.getprevious()
         return False
@@ -518,15 +556,25 @@ class Audit:
         cover_text = "\n".join(text(p) for _, p in cover_region)
         cover_heading = bool(re.search(r"本科(?:生)?毕业论文", clean(cover_text)))
         logo_match = self.native_cover_media_match([p for _,p in cover_region])
-        cover_school = cover_heading and ("福州理工学院" in cover_text or logo_match)
+        cover_paragraph_texts = [clean(text(p)) for _, p in cover_region]
+        labels = {"title": r"^题目[:：]", "name": r"^(?:学生)?姓名[:：]", "student_id": r"^学号[:：]",
+                  "college": r"^学院[:：]", "major": r"^专业[:：]", "year": r"^年级[:：]",
+                  "supervisor": r"^指导教师(?:[（(]签名[）)])?[:：]", "date": r"^(?:时间|日期)[:：]"}
+        label_evidence = {key: any(re.search(pattern, s) for s in cover_paragraph_texts) for key, pattern in labels.items()}
+        cover_tables = {a for _,p in cover_region for a in p.iterancestors() if a.tag == q("tbl")}
+        copy_mark = "（正本）" in clean(cover_text)
+        missing_labels = [key for key, present in label_evidence.items() if not present]
+        cover_school = cover_heading and logo_match and copy_mark and not missing_labels and bool(cover_tables)
         if not cover_school:
-            plausible = cover_heading and all(label in clean(cover_text) for label in ("学号", "学院", "专业", "指导教师"))
+            plausible = cover_heading and all(label_evidence[key] for key in ("student_id", "college", "major", "supervisor"))
             self.add("warning" if plausible else "error", "front.school_cover_missing_or_unconfirmed", self.locate(region[0][0] if region else None),
                      {"school_name_found": "福州理工学院" in cover_text,
                       "native_template_cover_media_match": logo_match, "undergraduate_cover_heading_found": cover_heading,
+                      "copy_mark_found": copy_mark, "field_label_evidence": label_evidence,
+                      "missing_field_labels": missing_labels, "cover_table_ids": sorted(self.tid[t] for t in cover_tables if t in self.tid),
                       "cover_evidence_excerpt": short(cover_text.replace("\n", " "), 160)},
-                     "学校范本封面及原作者、学号、专业、年级、指导教师等真实信息",
-                     "用学院原生封面结构；移入原稿真实信息。缺失的姓名、日期、签名等不得猜填。新增封面固定文字须纳入允许变更范围。",
+                     "学校原生校徽、论文/正本标识、信息填写表和题目/姓名/学号/学院/专业/年级/指导教师/时间字段",
+                     "不能只凭写有校名认定采用学校封面。按范本确认校徽与填写表布局；移入原稿真实信息，空字段不猜填。校徽字节不同仅表示尚未识别，须渲染人工确认；新增固定组件须纳入允许变更范围。",
                      "requires_render_review" if plausible else "requires_content_authorization", "medium" if plausible else "high")
         pledge_ids = [pid for pid, p in self.ps.items() if "诚信承诺书" in clean(text(p)) and len(clean(text(p))) < 100]
         if not pledge_ids:
@@ -583,6 +631,36 @@ class Audit:
         for pid in self.evidence["toc3"]:
             self.add("warning", "toc.third_level_entry", self.locate(pid), "三级目录样式条目", "学校目录只到二级",
                      "经目录重建/更新授权后排除第三层目录项，正文第三层标题继续保留。", "requires_content_authorization")
+        self.check_toc_cached_numbering()
+
+    def check_toc_cached_numbering(self):
+        bookmarks = {}
+        for marker in self.doc.iter(q("bookmarkStart")):
+            paragraph = next((a for a in marker.iterancestors() if a.tag == q("p")), None)
+            if paragraph in self.pid:
+                bookmarks[val(marker, "name")] = self.pid[paragraph]
+        for pid in self.evidence["toc1"] + self.evidence["toc2"]:
+            paragraph = self.ps[pid]
+            targets = []
+            for record in fields(paragraph):
+                match = re.match(r'\s*PAGEREF\s+(?:"([^"]+)"|([^\s\\]+))', record["instruction"], re.I)
+                if match: targets.append(match.group(1) or match.group(2))
+            targets += paragraph.xpath(".//w:hyperlink/@w:anchor", namespaces=NS)
+            target = next((bookmarks[t] for t in targets if t in bookmarks and self.roles.get(bookmarks[t], (None,))[0] in {"chapter", "section"}), None)
+            if target is None: continue
+            target_role = self.roles[target][0]
+            target_p = self.ps[target]; np = self.resolved_num(target_p)
+            if np is None: continue
+            level = val(np.find(q("ilvl")), default="0"); lvl = self.number_level(val(np.find(q("numId"))), level)
+            expected = NUMBER_TARGETS[target_role]
+            if lvl is None or (val(lvl.find(q("numFmt"))), val(lvl.find(q("lvlText")))) != expected[1:]: continue
+            visible = cached_visible_text(paragraph).strip()
+            decimal = re.match(r"^\d+(?:\.\d+)*(?:[.．]\s*|\s+)", visible)
+            if decimal:
+                self.add("warning", "toc.cached_number_prefix_mismatch", self.locate(pid, target_paragraph_id=target),
+                         {"cached_prefix": decimal.group(), "target_role": target_role, "target_numId": val(np.find(q("numId"))), "target_lvlText": expected[2]},
+                         "目录显示与其所指正文的学校中文编号一致；不能只改 TOC 代码而保留旧缓存",
+                         "在已授权副本中更新/重建目录，再重新打开并核对中文章号、两级条目和实际页码；保留正文标题原文。", "requires_content_authorization")
 
     def native_cover_media_match(self, paragraphs):
         def image_hashes(parts, ps):
@@ -606,6 +684,7 @@ class Audit:
 
     def check_numbering(self):
         numbering_ids = defaultdict(set)
+        checked_style_bindings = set()
         for pid, (role, confidence, _) in self.roles.items():
             if role not in NUMBER_TARGETS: continue
             p = self.ps[pid]; np = self.resolved_num(p)
@@ -630,6 +709,22 @@ class Audit:
                          {"ilvl": expected_level, "numFmt": expected_format, "lvlText": expected_text},
                          "将四级标题绑定学院同一多级编号，子级随上级重启；保留标题文字，实际编号显示须在 Word 对照核验。",
                          "requires_content_authorization", confidence)
+            elif (self.sid(p), nid, level) not in checked_style_bindings:
+                checked_style_bindings.add((self.sid(p), nid, level))
+                style_chain, seen, current = [], set(), self.sid(p)
+                style_num = None
+                while current in self.styles and current not in seen:
+                    seen.add(current); style_chain.append(current)
+                    candidate = self.styles[current].find("w:pPr/w:numPr", NS)
+                    if style_num is None and candidate is not None: style_num = candidate
+                    current = val(self.styles[current].find(q("basedOn")))
+                inherited_binding = style_num is not None and val(style_num.find(q("numId"))) == nid and val(style_num.find(q("ilvl")), default="0") == level
+                list_binding = val(lvl.find(q("pStyle"))) in style_chain
+                if not inherited_binding and not list_binding:
+                    self.add("warning", "heading.style_numbering_binding_unconfirmed", self.locate(pid),
+                             {"style_id": self.sid(p), "numId": nid, "ilvl": level, "list_level_pStyle": val(lvl.find(q("pStyle"))), "style_chain": style_chain},
+                             "标题样式与同一多级列表建立有效绑定，新增段落套样式仍能自动编号",
+                             "现有段落有直接 numPr 不等于样式绑定完整。确认样式/列表关联，在内部副本中新增标题并检查真实编号；不要删改标题文字。", "requires_role_review", confidence)
         all_ids = set().union(*numbering_ids.values()) if numbering_ids else set()
         if len(all_ids) > 1:
             self.add("warning", "heading.disconnected_lists", {"part": "word/numbering.xml"},
@@ -905,10 +1000,17 @@ class Audit:
                 if not any(unit is old for old in formula_units): formula_units.append(unit)
             if role in {"equation", "equation_number"} and not omml and not equation_ole:
                 if p.findall(".//w:drawing", NS) or p.findall(".//w:pict", NS): image_candidates.append(pid)
-                elif re.search(r"[=+−×÷∑∫]|[_^]", text(p)):
+                elif re.search(r"[=＝+＋−×÷∑∫]|[_^]", text(p)):
                     self.add("error", "math.plain_text_formula", self.locate(pid), short(text(p)),
                              "公式编辑器 OMML，或经原生编辑确认可打开的旧式 Equation/MathType 对象",
                              "先确认数学含义，再按授权转成编辑器对象；不能凭字符串自动猜上下标或运算。", "requires_content_authorization")
+            if role in {"body", "body_math", "cn_abstract", "en_abstract", "table_text", "table_math"} and not equation_ole:
+                candidates = plain_math_candidates(p)
+                if candidates:
+                    self.add("warning", "math.plain_text_candidate", self.locate(pid),
+                             {"ordinary_text_math_candidates": candidates, "existing_omml_count": len(omml)},
+                             "已确认的公式与数学变量使用可编辑数学对象；普通下划线不冒充数学下标",
+                             "先确认这些普通文字是否公式/变量或代码、路径、数据。确认后逐项按授权转为编辑器对象并对照原符号和上下标；本审核不自动转换、不猜数学含义。", "requires_role_review", "medium")
             if equation_ole:
                 self.add("info", "math.legacy_equation_object", self.locate(pid), {"ProgID": equation_ole},
                          "可实际双击编辑的公式对象", "存在旧 OLE 对象只能证明嵌入类型；在 Word 打开确认编辑器可用。不要把预览图片当作已可编辑。", "requires_render_review")
@@ -1098,7 +1200,9 @@ def write_markdown(report, path):
                 "math.textbox_layout_disallowed": 6, "structure.acknowledgement_not_last": 7,
                 "structure.acknowledgement_missing_or_unconfirmed": 7, "heading.automatic_number_format": 8,
                 "math.label_incomplete_or_missing": 9, "math.static_number": 10,
-                "pagination.no_page_field": 11, "toc.no_real_field": 12}
+                "math.plain_text_candidate": 10, "pagination.no_page_field": 11,
+                "toc.no_real_field": 12, "toc.cached_number_prefix_mismatch": 12,
+                "heading.style_numbering_binding_unconfirmed": 13}
     severity_rank = {"error": 0, "warning": 1, "info": 2}
     categories = sorted(grouped, key=lambda cat: (priority.get(cat, 100), min(severity_rank[i["severity"]] for i in grouped[cat]), cat))
     main_categories = [cat for cat in categories if any(i["severity"] in {"error", "warning"} for i in grouped[cat])][:8]

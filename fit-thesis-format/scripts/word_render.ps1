@@ -125,10 +125,14 @@ try {
     $taskDoc.ExportAsFixedFormat($taskPdf, 17, $false)
     if (-not (Test-Path -LiteralPath $taskPdf -PathType Leaf)) { throw 'Word did not create the PDF.' }
     $taskReport = [ordered]@{
+        schema_version = 2
         engine = 'Microsoft Word'
+        engine_version = [string]$taskApp.Version
         input = $taskInput
         pdf = $taskPdf
+        pdf_sha256 = (Get-FileHash -LiteralPath $taskPdf -Algorithm SHA256).Hash.ToLowerInvariant()
         saved_docx = $taskSaved
+        saved_docx_sha256 = $null
         explicitly_updated_fields = [bool]$UpdateFields
         input_opened_read_only = $true
         pages = $taskDoc.ComputeStatistics(2)
@@ -162,4 +166,7 @@ try {
 }
 $taskReport['source_sha256_after'] = $taskAfter
 $taskReport['source_unchanged'] = $true
+if ($null -ne $taskSaved) {
+    $taskReport['saved_docx_sha256'] = (Get-FileHash -LiteralPath $taskSaved -Algorithm SHA256).Hash.ToLowerInvariant()
+}
 $taskReport | ConvertTo-Json -Depth 4
