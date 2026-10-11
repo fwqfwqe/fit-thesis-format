@@ -228,11 +228,11 @@ def execute_workflow(request, request_file=None):
     """
     action=request['action']
     required={'action','source','work_dir'} if action=='prepare' else {'action','source','output','report'}
-    optional=set() if action=='prepare' else {'chain','render_manifest','page_manifest','review'}
+    optional=set() if action=='prepare' else {'chain','render_manifest','page_manifest','review','coverage'}
     extra=set(request)-required-optional; missing=required-set(request)
     if extra or missing:
         raise RequestError('INVALID_REQUEST','Unexpected fields: '+', '.join(sorted(extra))+'; missing fields: '+', '.join(sorted(missing)))
-    reads={key:file_path(request[key],key,True) for key in ('source','output','chain','render_manifest','page_manifest','review') if key in request}
+    reads={key:file_path(request[key],key,True) for key in ('source','output','chain','render_manifest','page_manifest','review','coverage') if key in request}
     for key in ('source','output'):
         if key in reads and reads[key].suffix.lower()!='.docx':raise RequestError('UNSUPPORTED_INPUT',key+' must be a DOCX file')
     write_key='work_dir' if action=='prepare' else 'report'

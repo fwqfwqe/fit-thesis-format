@@ -348,6 +348,16 @@ class Audit:
                 # A label inside an existing appendix/code container is not a
                 # main-body section just because it was assigned that style.
                 role, confidence, basis = "appendix_subheading", "high", "已有附录内的分项标题"
+            if item is None and role in NUMBER_TARGETS and len(clean(s)) > 120:
+                # A heading style is evidence, not proof that a long prose
+                # paragraph is a heading. Keep the candidate for review;
+                # never silently turn it into body text or rewrite it.
+                confidence = "medium"
+                self.add("warning", "heading.long_text_requires_review", self.locate(pid=pid),
+                         {"candidate_role": role, "style_id": sid, "text_length": len(clean(s))},
+                         "长段落的标题角色已结合原文确认",
+                         "该段落带标题样式或大纲级别，但文字较长。阅读完整原文后在角色映射中明确确认；不要仅凭样式把散文当标题或自动改为正文。",
+                         "requires_role_review", "medium")
             if role == "cn_abstract_heading":
                 cn_abstract_idx = index; abstract_region = "cn_abstract"; toc_region = ref_region = False
             elif role == "en_abstract_heading":
@@ -394,6 +404,55 @@ class Audit:
                 s = text(p).strip()
                 if s and len(s) > 5 and len(s) < 160 and not re.match(r"^(姓名|题目|学院|专业|学号|年级|指导教师|时间)\s*[:：]?$", s):
                     self.title = s; break
+
+    def check_coverage(self):
+        """Make every substantive unclassified paragraph visible to delivery.
+
+        Heuristics deliberately do not guess the roles of appendix prose,
+        unknown heading conventions or content after an uncertain TOC. These
+        omissions must be review findings, not a silent lack of format errors.
+        Empty spacing paragraphs do not require a semantic role.
+        """
+        content_tags = {q(name) for name in ("t", "delText", "instrText", "delInstrText",
+                        "drawing", "pict", "object", "fldChar", "fldSimple", "sym",
+                        "footnoteReference", "endnoteReference")} | {"{" + M + "}oMath"}
+        text_tags = {q(name) for name in ("t", "delText", "instrText", "delInstrText")}
+        substantive = []
+        for pid, p in self.ps.items():
+            for node in p.iter():
+                if node.tag not in content_tags:
+                    continue
+                if node.tag == q('fldChar') and val(node, 'fldCharType') == 'end':
+                    # Word can place a TOC closing marker in its own empty
+                    # paragraph. It has no displayed content to classify;
+                    # the full review plan still retains this control node.
+                    continue
+                # Textbox paragraphs have their own IDs; do not count their
+                # text again as ordinary prose in the outer paragraph.
+                if next((a for a in node.iterancestors() if a.tag == q("p")), None) is not p:
+                    continue
+                if node.tag not in text_tags or (node.text or "").strip():
+                    substantive.append(pid)
+                    break
+        missing = [pid for pid in substantive if pid not in self.roles]
+        ranges = []
+        for pid in missing:
+            if ranges and int(pid[1:]) == int(ranges[-1]["last"][1:]) + 1:
+                ranges[-1]["last"] = pid
+                ranges[-1]["count"] += 1
+            else:
+                ranges.append({"first": pid, "last": pid, "count": 1})
+        self.coverage = {"part": "word/document.xml", "substantive_paragraph_count": len(substantive),
+                         "classified_substantive_paragraph_count": len(substantive) - len(missing),
+                         "unclassified_paragraph_ids": missing, "unclassified_ranges": ranges,
+                         "role_review_required": bool(missing)}
+        if missing:
+            self.add("warning", "coverage.unclassified_content",
+                     self.locate(pid=missing[0], paragraph_range=[missing[0], missing[-1]]),
+                     {"unclassified_count": len(missing), "ranges": ranges},
+                     "所有有文字、域或对象的段落均有已确认角色或明确的保留审核记录",
+                     "按 coverage.unclassified_paragraph_ids 逐段阅读并确认角色，尤其核对文末、附录和未识别的正文开端；空白段落除外。不要猜测为正文或标题，也不要把未检出格式问题当作已审核。",
+                     "requires_role_review", "high")
 
     def check_paragraphs(self):
         editable_roles = defaultdict(list)
@@ -1137,6 +1196,7 @@ class Audit:
 
     def run(self):
         self.infer_roles()
+        self.check_coverage()
         self.check_structure(); self.check_paragraphs(); self.check_numbering()
         self.check_sections(); self.check_tables(); self.check_math(); self.check_citations()
         protection = self.settings.find(q("documentProtection"))
@@ -1153,10 +1213,13 @@ class Audit:
             "style_spec_sha256": sha(self.spec_bytes), "title_used_for_header_check": self.title,
             "summary": {"paragraph_count": len(self.ps), "table_count": len(self.ts), "section_count": len(self.sections),
                         "classified_paragraph_count": len(self.roles), "issue_count": len(self.issues),
+                        "substantive_paragraph_count": self.coverage["substantive_paragraph_count"],
+                        "unclassified_substantive_paragraph_count": len(self.coverage["unclassified_paragraph_ids"]),
                         "by_severity": dict(severities), "by_status": dict(statuses),
                         "machine_format_result": "issues_found" if severities["error"] or severities["warning"] else "no_machine_detected_issue",
                         "render_review_required": True, "not_a_final_compliance_certificate": True},
             "role_identification": {pid: {"role": role, "confidence": c, "basis": b} for pid, (role, c, b) in self.roles.items()},
+            "coverage": self.coverage,
             "sections": self.sections, "issues": self.issues,
             "style_layout_exceptions": {
                 "native_front_layout_paragraph_ids": [pid for pid,(role,_,_) in self.roles.items() if role.startswith("cover_") or role.startswith("commitment_")],

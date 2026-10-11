@@ -128,19 +128,38 @@ def check_render(final, render_path, pages_path, review_path):
             'note': 'Hashes bind the submitted evidence to the final files. The script cannot prove the reviewer actually looked at or correctly interpreted every page.'}
 
 
-def check(source, final, chain=None, render_manifest=None, page_manifest=None, review=None):
+def check(source, final, chain=None, render_manifest=None, page_manifest=None, review=None, coverage=None):
     before = {'source': sha(source), 'final': sha(final)}
     blockers, details = [], {}
     try:
         if chain:
             details['fresh_stage_verification'] = verify_chain(source, final, chain)
         else:
+            if before['source'] != before['final']:
+                raise ValueError('A changed DOCX requires a replayable stage chain. Text comparison alone cannot protect hyperlink targets, effective numbering or every package part.')
             errors = compare_content(inventory(package(source)), inventory(package(final)))
             if errors:
                 raise ValueError('; '.join(errors) + '. Supply a valid supported stage chain; do not reset the original baseline.')
             details['content_verification'] = 'strict_original_content_unchanged'
     except Exception as exc:
         blockers.append({'check': 'content_preservation', 'reason': str(exc)})
+    try:
+        if coverage is None:
+            raise ValueError('Whole-document review coverage is missing; use review_plan.py to review and account for every paragraph and table, including the end of the paper.')
+        from review_plan import verify_coverage
+        coverage_result = verify_coverage(source, coverage)
+        details['whole_document_coverage'] = coverage_result
+        mapping_path = Path(coverage_result['style_map_path'])
+        mapping = read(mapping_path)
+        mapped = bool(mapping.get('paragraphs') or mapping.get('tables') or any(mapping.get('story_paragraphs', {}).values()))
+        if mapped:
+            matched = any(stage['scope'] == 'styles' and stage['source_sha256'] == before['source']
+                          and stage['mapping_sha256'] == coverage_result['style_map_sha256']
+                          for stage in details.get('fresh_stage_verification', []))
+            if not matched:
+                raise ValueError('The complete reviewed style map was not applied in a freshly verified stage from the original source; a partial map is insufficient.')
+    except Exception as exc:
+        blockers.append({'check': 'whole_document_coverage', 'reason': str(exc)})
     try:
         audit = Audit(final).run()
         unresolved = [item for item in audit['issues'] if item['severity'] in ('error', 'warning')]
@@ -173,11 +192,11 @@ def main():
     parser.add_argument('--source', type=Path, required=True)
     parser.add_argument('--final', type=Path, required=True)
     parser.add_argument('--report', type=Path, required=True)
-    for name in ('chain', 'render-manifest', 'page-manifest', 'review'):
+    for name in ('chain', 'render-manifest', 'page-manifest', 'review', 'coverage'):
         parser.add_argument('--' + name, type=Path)
     args = parser.parse_args()
     try:
-        inputs = [p.resolve() for p in (args.source, args.final, args.chain, args.render_manifest, args.page_manifest, args.review) if p]
+        inputs = [p.resolve() for p in (args.source, args.final, args.chain, args.render_manifest, args.page_manifest, args.review, args.coverage) if p]
         report = args.report.expanduser().resolve()
         if report in inputs or report.exists() or report.is_symlink():
             raise ValueError('Report must be a new path distinct from every input')
@@ -185,7 +204,7 @@ def main():
             raise ValueError('Source and final must be DOCX files')
         result = check(args.source.resolve(), args.final.resolve(),
                        **{key: getattr(args, key).resolve() if getattr(args, key) else None
-                          for key in ('chain', 'render_manifest', 'page_manifest', 'review')})
+                          for key in ('chain', 'render_manifest', 'page_manifest', 'review', 'coverage')})
         report.parent.mkdir(parents=True, exist_ok=True)
         with report.open('x', encoding='utf-8') as handle:
             json.dump(result, handle, ensure_ascii=False, indent=2)

@@ -2,13 +2,25 @@
 
 这是在模型理解原稿后使用的基础排版助手，不是无需阅读就一键识别所有论文结构的转换器。全篇逐字不变与命名样式可手调是两项独立交付条件。
 
-仅收到 GitHub 链接时先读[START_HERE.md](../START_HERE.md)，取得完整包。v6 可先运行 `python scripts/prepare.py --source 原稿.docx --work-dir 新任务目录`，保留原稿、生成三类清单和待审映射。草稿映射不等于已确认的修改计划。最后运行 `scripts/delivery_check.py`，将真实原稿、最终稿及实际渲染检查记录绑定；它返回 `delivery_ready=false` 时只可称为未验收稿或部分完成。
+仅收到 GitHub 链接时先读[START_HERE.md](../START_HERE.md)，取得完整包。v7 先运行 `python scripts/prepare.py --source 原稿.docx --work-dir 新任务目录`，保留原稿、生成清单、待审映射及 `review/` 分批审核计划。完成全部批次后生成合并映射与覆盖报告，再修改完整 DOCX。最后运行 `scripts/delivery_check.py --coverage ... --chain ...`，绑定真实原稿、全文覆盖、完整阶段链及实际逐页检查记录；它返回 `delivery_ready=false` 时只可称为未验收稿或部分完成。
 
 需要先审核时使用`format_audit.py`，见audit-mode.md。用户已经授权学校封面承诺书、自动标题编号、完整公式标签与编辑器转换时，使用school-standard-mode.md另做结构映射和核验；本基础助手不会实现这些功能，不能只运行它就声称已经完成学校全部格式。
 
 ## 运行环境与清单
 
 使用当前环境可执行的Python 3.10+，基础助手仅需lxml/标准库，数学新建助手另需python-docx；完整依赖在包内requirements.txt。宿主有受管理的解释器时遵循其运行规则，否则可使用独立虚拟环境。命令中的PYTHON、SKILL、INPUT、OUTPUT、WORK均替换为当前环境路径，含空格路径作为独立参数传递；不硬编码机器用户名、模型平台或运行时版本。也可通过agent_cli.py提交JSON任务，见agent-protocol.md。
+
+完整审核流程见[长文完整覆盖与断点续审](long-documents.md)。`prepare` 已生成 `WORK/review` 时直接用 `next` 接续；仅在尚无计划时调用 `create`，其工作目录必须是新目录：
+
+```text
+PYTHON SKILL/scripts/review_plan.py create --source INPUT --work-dir WORK/review --chunk-size 120
+PYTHON SKILL/scripts/review_plan.py next --source INPUT --work-dir WORK/review
+PYTHON SKILL/scripts/review_plan.py assemble --source INPUT --work-dir WORK/review --style-map WORK/role_map.json --coverage WORK/coverage.json
+```
+
+`next` 返回一批实际原文及审核项；阅读后保存逐项决定，再继续下一批。所有段落、表格及其他文档区域都必须分类或说明具体保留原因，包含空段、附录和末尾对象。不得用“论文过长”为由抽样、缩写、漏尾，也不得把未知角色自动猜成正文或标题。只能编辑审核决定，不能改分批文件中的原文、ID或哈希；中断后复用相同源文件与已保存计划继续。全部确认后才能 `assemble`。
+
+需要样式修改时，下面阶段使用合并生成的 `role_map.json`，一次处理完整输入；每阶段保留完整 DOCX，不将正文拆批另存后拼接。全部项目均已明确保留时可以生成覆盖记录，但不要把空样式映射交给 apply：
 
 ```text
 PYTHON SKILL/scripts/thesis_format.py inspect INPUT --out WORK/manifest.json
@@ -21,6 +33,7 @@ PYTHON SKILL/scripts/thesis_format.py verify OUTPUT --source INPUT --map WORK/ro
 ```json
 {
   "source_sha256": "从inspect取得的完整SHA256",
+  "reviewed": true,
   "paragraphs": {"p000001": "body"},
   "tables": {"t0001": {"kind": "three-line", "header_rows": 1}},
   "story_paragraphs": {
@@ -32,9 +45,9 @@ PYTHON SKILL/scripts/thesis_format.py verify OUTPUT --source INPUT --map WORK/ro
 }
 ```
 
-示例仅说明schema；第一段通常不是正文，第一张表通常也不一定是数据表。必须据实际清单重建映射。`story_paragraphs`是可选项，只能列inspect.stories中已存在的页眉、页脚、脚注或尾注部件；每个部件的段落ID独立编号。基础助手只处理现有story；缺失页眉/页脚与编号由下文专用布局助手处理，不能假装基础助手已完成。助手保留未映射段落，交付前要看未映射原因；不可把“保留”全部当成“已排版”。正文公式/图片段单独识别，现有横向复杂节单独审核。
+示例仅说明schema，不能代替完整审核生成的映射；第一段通常不是正文，第一张表通常也不一定是数据表。`story_paragraphs`是可选项，只能列inspect.stories中已存在的页眉、页脚、脚注或尾注部件；每个部件的段落ID独立编号。基础助手只处理现有story；缺失页眉/页脚与编号由下文专用布局助手处理，不能假装基础助手已完成。完整覆盖中的 `preserve` 项不进入样式修改映射，但每项必须有具体保留理由；不能把“保留”全部当成“已排版”或据此豁免学校要求。正文公式/图片段单独识别，现有横向复杂节单独审核。
 
-v6 拒绝没有任何段落、表格或 story 选择的空修改映射。局部修改允许仅映射一部分，但不会获得“整篇交付完成”的状态。`verify` 检查真实样式数值，不能把文字未变当成字号、行距正确。确有版式例外时，可在本阶段映射中记录 `style_overrides`，例如 `{"body":{"reviewed":true,"reason":"经核对需要增加段后距离以容纳相邻对象","properties":{"after_pt":6}}}`；例外影响该命名样式的全部段落，apply/verify 必须使用同一映射。例外不自动豁免学校要求，最终静态审核仍会报告偏差；不要用例外躲开错误。
+v7 拒绝没有任何段落、表格或 story 选择的空修改映射，也拒绝 `reviewed:false` 草稿；正式映射须经过实际审核并标记 `reviewed:true`。局部修改仍可用于后续明确的修正，但不能代替首次完整合并映射和全文覆盖记录。`verify` 检查真实样式数值，不能把文字未变当成字号、行距正确。确有版式例外时，可在该阶段映射中记录 `style_overrides`，例如 `{"body":{"reviewed":true,"reason":"经核对需要增加段后距离以容纳相邻对象","properties":{"after_pt":6}}}`；例外影响该命名样式的全部段落，apply/verify 必须使用同一映射。不要直接改动已经与覆盖报告绑定的合并映射；额外例外使用前一阶段完整输出作新输入，另建明确审核的映射并加入阶段链。例外不自动豁免学校要求，最终静态审核仍会报告偏差。
 
 阅读清单后记录一份任务临时 `artifact.md`：输入/范本hash、页面/节/角色映射、特殊对象、允许的格式修改、未覆盖问题与已知冲突选择。格式依据来自技能范本；编辑对象是输入论文的副本。这是针对用户“内容一个字不改”的专用保留策略，不从学校示例重建正文。
 
@@ -97,7 +110,7 @@ PYTHON SKILL/scripts/thesis_layout.py verify FINAL --source CITED --map WORK/lay
 - 助手apply在临时包上检查所有原文本节点，并保护公式/图形/二进制对象；失败不写最终输出。仅主文档、styles及映射明确选择的现有story可发生纯格式变化，其他部件保持原字节。story内容骨架、文字、域及编号同样核验。verify后仍需检查变化仅是允许的格式属性。
 - 不拆分/合并/删除原段落/表格，不迁移内容。对无法套用的原文仍保留并列出例外。
 - 引用阶段仅对审核过的纯文字run做必要拆分，不拆段落；布局阶段仅新增/修改节格式及明确授权的运行页眉页脚。两者的verify从该阶段source+map重算精确允许的包内容，核对所有成员集合与逐部件字节，防止借“忽略页眉”漏掉正文变更。拒绝重复ZIP部件名。原页眉脚部件不删除，不能把误改原部件藏在新引用后。
-- 最终保留 `原稿 → BASE → CITED（可选）→ FINAL` 的来源SHA与各阶段报告，交付前重新验证整条链；中间文件只用于审计，不默认交付给用户。不能从最终稿创建新的baseline冒充原稿核验。基础助手不接受run拆分/新部件，其严格检查仅适用于BASE阶段。
+- 最终保留 `原稿 → BASE → CITED（可选）→ FINAL` 的完整文件、来源SHA与各阶段报告，交付前用 `--coverage` 核对原稿全部项目、用 `--chain` 重新验证整条链；修改过的文件即使只改格式也不能省略链。中间文件只用于审计，不默认交付给用户。不能从最终稿创建新的baseline冒充原稿核验。基础助手不接受run拆分/新部件，其严格检查仅适用于BASE阶段。
 - 若助手之外另改了内容部件、对象几何、分节或样式，运行verify并独立核验对应结构。不能通过跳过比较或重置baseline让修改“通过”。确需几何变更但助手严格对象检查拒绝时，保留原对象并说明，或另实现仅比较几何之外内容的明确格式审计；不可放宽文字/媒体检查。
 - 有未决修订时保留所有插入/删除/作者时间和显示状态，不自动接受修订。强制保护、锁定控件应作为编辑限制报告。
 - Word只读渲染不保存源稿/成稿。不要在渲染时调用Fields.Update、TOC.Update、Save等改写缓存；PDF仅内部检查。Word的打印/导出设置也可能自动重算目录：若使用专用Word实例，记录并临时关闭UpdateFieldsAtPrint，结束时恢复原值；不能将渲染引擎重新计算的目录内容写回成稿。最终内容校验以保存的DOCX及其原域缓存为准，动态域在用户自行刷新后可能重新计算。

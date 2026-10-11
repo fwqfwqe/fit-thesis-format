@@ -64,7 +64,7 @@ def install(dest, manifest_bytes, archive_bytes):
             if len(data) != entry['size'] or sha(data) != entry['sha256']:
                 raise ValueError('Package member failed verification: ' + item.filename)
             payloads.append((path, data))
-    for required in ('SKILL.md', 'START_HERE.md', 'scripts/prepare.py', 'scripts/delivery_check.py',
+    for required in ('SKILL.md', 'START_HERE.md', 'scripts/prepare.py', 'scripts/delivery_check.py', 'scripts/review_plan.py',
                      'assets/fit-economics-management-template.docx', 'references/style-spec.json'):
         if 'fit-thesis-format/' + required not in expected:
             raise ValueError('Incomplete current package: ' + required)

@@ -401,6 +401,8 @@ def validate_paragraph_roles(pmap,ps,context='document'):
 
 def validate_map(mapping,source,ps,ts,parts):
     if mapping.get('source_sha256')!=sha(Path(source).read_bytes()):raise ValueError('Map source_sha256 missing or stale. Inspect the exact source and review the map again.')
+    if 'reviewed' in mapping and mapping['reviewed'] is not True:
+        raise ValueError('Map is an unreviewed draft; review the full requested scope before applying it.')
     resolved_style_specs(mapping)
     validate_paragraph_roles(mapping.get('paragraphs'),ps)
     for tid,opts in mapping.get('tables',{}).items():

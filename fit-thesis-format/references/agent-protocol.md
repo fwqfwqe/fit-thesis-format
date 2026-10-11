@@ -28,7 +28,7 @@ python -m pip install -r fit-thesis-format/requirements.txt
 
 不要假定某个机器的用户名或解释器路径存在。宿主有自己的依赖环境规则时使用该环境。文件路径必须是工具所在机器可读的真实路径；上传附件的内部ID需要先通过宿主文件工具落实为文件。
 
-## v6：先准备原稿与审核材料
+## v7：先准备原稿与全文审核计划
 
 下面路径以包含 `fit-thesis-format/` 的目录为当前工作目录；若使用 `bootstrap.py --dest package-new`，可先切换到 `package-new`，或在脚本路径前加 `package-new/`。
 
@@ -43,9 +43,27 @@ python fit-thesis-format/scripts/prepare.py --source "论文.docx" --work-dir wo
 - `styles-inventory.json`、`layout-inventory.json`、`citation-inventory.json`：实际原稿的三个清单。
 - `audit.json`、`audit.md`：修改前审核，不可充当修改后复核。
 - `style-map.draft.json`、`layout-map.draft.json`、`citation-map.draft.json`：待审映射草稿，未经语义确认不能交给 apply。
+- `review/index.json`、`review/chunks/chunk-*.json`：绑定完整原稿的项目索引与逐批审核文件，保留所有段落、表格及其他文档区域的定位和原文。
 - `START.md`、`prepare-result.json`：下一步操作及这次准备的真实结果。
 
-`prepare` 不修改论文，不自动判定全部角色，也不自动重建封面、目录、标题编号或公式。按[基础助手](workflow.md)读清单、判断每个段落/表格/区域/引用的实际角色，再生成本阶段绑定输入 SHA256 的正式映射。
+`prepare` 不修改论文，不自动判定全部角色，也不自动重建封面、目录、标题编号或公式。按[长文完整覆盖与断点续审](long-documents.md)逐批读取全部项目。未知角色、正文与标题混淆、公式和图片段落必须结合上下文确认，不能将静态建议自动复制为已确认决定。
+
+```text
+python fit-thesis-format/scripts/review_plan.py next --source "work-new/original.docx" --work-dir "work-new/review"
+python fit-thesis-format/scripts/review_plan.py assemble --source "work-new/original.docx" --work-dir "work-new/review" --style-map "work-new/style-map.json" --coverage "work-new/coverage.json"
+```
+
+读完一批并保存逐项决定后，再调用 `next`；中断后继续使用同一个原稿与审核目录。每项都要确认格式角色或给出具体保留原因，全部批次确认后才能 `assemble`。字数多不是抽样、缩写或遗漏后半篇的理由；批次中的边界上下文不能代替项目本身的完整原文。首次样式阶段一次用合并映射处理完整原稿副本，每阶段保留完整 DOCX，不将各批论文拼接。全部标为 preserve 仅是决定记录，不能免除学校格式审核和逐页验收。
+
+未使用 `prepare` 且尚无审核目录时，可单独创建计划：
+
+```text
+python fit-thesis-format/scripts/review_plan.py create --source "论文.docx" --work-dir "work-new/review" --chunk-size 120
+```
+
+`create` 的目录必须尚不存在；已有计划用 `next` 继续。原稿字节改变时必须对准确的新输入建立计划，不能手改索引哈希迁就旧记录。分批工具使用以上 CLI，不能凭空向 JSON 入口提交未列出的 action。
+
+全部项目确实无需样式修改时，可生成覆盖记录而不运行空映射 apply；仍须完成最终格式与逐页检查。该例外不能用于跳过应处理的格式问题。
 
 ## 分阶段 JSON 工具
 
@@ -104,7 +122,7 @@ doctor 是候选能力发现，不启动渲染程序或验证字体。必须实�
 }
 ```
 
-该片段须合并到完整映射，不能独立代替段落角色映射。例外影响该命名样式的全部段落，必须有真实复核和非空具体原因；不允许改样式名称、大纲或内容保护规则。公式角色不允许通过此接口改数学字体、字号、粗体。可调格式属性包括中西文字体、字号、对齐、段前后、行距、缩进、粗体、分页/连排、底边线与制表位；字段类型、范围和限制以 [workflow.md](workflow.md) 的正式说明及实际校验器为准。不要用例外把不符合学校要求的值强行标成通过。
+该片段须与本阶段已经确认的段落角色映射一起使用，不能独立代替映射。完整审核生成的首阶段映射已经绑定覆盖报告，不能直接添加字段或改写它；需要额外例外时，以前一阶段完整输出为新输入建立后续样式修正阶段并保留来源链。例外影响该命名样式的全部段落，必须有真实复核和非空具体原因；不允许改样式名称、大纲或内容保护规则。公式角色不允许通过此接口改数学字体、字号、粗体。可调格式属性包括中西文字体、字号、对齐、段前后、行距、缩进、粗体、分页/连排、底边线与制表位；字段类型、范围和限制以 [workflow.md](workflow.md) 的正式说明及实际校验器为准。不要用例外把不符合学校要求的值强行标成通过。
 
 ## 函数调用型AI怎么接
 
@@ -134,29 +152,31 @@ def invoke_fit_thesis(arguments, skill_dir, work_dir):
 ## 六步工作流程
 
 1. **取得完整包并保留原稿。** 校验版本和资源，用 prepare 记录最初基线，在新路径工作；明确只审核、排版还是新建示例。
-2. **检查问题。** 读取实际清单及学校要求，检查审核结果，区分标题、正文、公式、图表、参考文献等真实角色。
-3. **确定改法。** Agent自己阅读原文并建立角色映射。已授权的格式继续修复；涉及研究文字或缺失内容时，保留并说明。
-4. **修改副本。** 使用样式、引用、分节等对应工具。学校封面、手打编号转自动编号、公式结构转换另做逐项记录，不能仅跑基础脚本就宣称全自动完成。
+2. **读完全部审核批次。** 读取学校要求与每批完整原文，逐项确认标题、正文、公式、图表、参考文献及文末附录；保存决定，可断点继续。
+3. **合并完整改法。** 每项确认格式角色或具体保留原因，完成全部项目后生成合并映射和 coverage；未知角色先核实，不能猜测或将全部 preserve 当合格。
+4. **修改完整副本。** 首次样式阶段一次使用合并映射，再接引用、分节等工具，每阶段保留完整文件。学校封面、手打编号转自动编号、公式结构转换另做逐项记录，不能仅跑基础脚本就宣称全自动完成。
 5. **核对并逐页查看。** 每阶段核对文字、数据、对象及来源；更新域仅作用于已授权副本。用可用文档引擎渲染，实际查看每一页。方法见[便携渲染](portable-rendering.md)。
-6. **复核后交付。** 对当前候选稿运行 delivery_check，并提供真实的页面证据；未通过时只交付已完成的审核或明确标识的未验收候选稿，不称整篇格式合格。
+6. **复核后交付。** 对当前候选稿运行 delivery_check，提供 coverage、修改阶段链和真实的全部页面证据；未通过时只交付已完成的审核或明确标识的未验收候选稿，不称整篇格式合格。
 
 “检查→修改→核对”可以迭代，但每次都保留原始基线，不能拿修改稿重设基线掩盖内容变化。普通动作返回成功只代表该动作执行完成；查看`render_review_performed`及`checks`中的实际检查状态，脚本不会冒充视觉审核。
 
-## v6：交付检查与证据
+## v7：完整覆盖、内容与页面证据
 
 候选稿完成后，先重新审核和核对原稿：
 
 ```text
-python fit-thesis-format/scripts/delivery_check.py --source "论文.docx" --final "work-new/candidate.docx" --report "work-new/delivery-check.json"
+python fit-thesis-format/scripts/delivery_check.py --source "论文.docx" --final "work-new/candidate.docx" --coverage "work-new/coverage.json" --chain "work-new/chain.json" --report "work-new/delivery-check.json"
 ```
 
 完整证据检查可使用：
 
 ```text
-python fit-thesis-format/scripts/delivery_check.py --source "论文.docx" --final "work-new/candidate.docx" --report "work-new/delivery-check-full.json" --chain "work-new/chain.json" --render-manifest "work-new/qa/word-export.json" --page-manifest "work-new/qa/pages/manifest.json" --review "work-new/qa/review.json"
+python fit-thesis-format/scripts/delivery_check.py --source "论文.docx" --final "work-new/candidate.docx" --coverage "work-new/coverage.json" --report "work-new/delivery-check-full.json" --chain "work-new/chain.json" --render-manifest "work-new/qa/word-export.json" --page-manifest "work-new/qa/pages/manifest.json" --review "work-new/qa/review.json"
 ```
 
-`--chain` 可省略；省略时对原始稿和候选稿做严格受保护内容比较。有支持的分阶段修改时，链文件格式如下，其中每条路径相对链文件自身或使用绝对路径：
+`--coverage` 是 `review_plan.py assemble` 从全部已确认批次生成的报告，绑定原稿、索引、每批决定和合并样式映射。验收会重新验证这些文件，并检查首次样式阶段实际使用该完整映射；局部映射通过 verify 不能代替全文覆盖。覆盖报告不是格式合格证，preserve 理由也不豁免内容和格式核验。
+
+只要候选 DOCX 与原稿字节不同，包括纯格式变化，就必须提供 `--chain`；仅完全未修改的同一文件可省略链。支持的分阶段修改使用下列格式，其中每条路径相对链文件自身或使用绝对路径：
 
 ```json
 {
@@ -170,6 +190,22 @@ python fit-thesis-format/scripts/delivery_check.py --source "论文.docx" --fina
 ```
 
 只列实际执行的阶段，每阶段必须连接上一阶段的真实输出；检查器重新运行对应 verify，不相信旧报告里的 `ok`。当前链仅支持 `styles`、`citations`、`layout`。**自定义封面重建、章号改写、公式转写、附录移动、域缓存刷新等转换，当前没有通用重放核验器，不能用 `allow_changes`、任意白名单或一句人工确认绕过。** 此类变化须保留专门核验结果，并在当前交付检查中标为未验收，不能声称自动检查已通过。
+
+JSON 入口使用同名 `coverage` 字段，路径仍按调用进程当前目录解析。例如：
+
+```json
+{
+  "action": "delivery_check",
+  "source": "论文.docx",
+  "output": "work-new/candidate.docx",
+  "coverage": "work-new/coverage.json",
+  "chain": "work-new/chain.json",
+  "render_manifest": "work-new/qa/word-export.json",
+  "page_manifest": "work-new/qa/pages/manifest.json",
+  "review": "work-new/qa/review.json",
+  "report": "work-new/delivery-check-full.json"
+}
+```
 
 `--render-manifest` 是文档引擎真实导出的报告，绑定最终 DOCX 与 PDF；`--page-manifest` 绑定同一 PDF 的全部页面图片；`--review` 是实际查看页面后写下的记录。字段和生成方式见[便携渲染说明](portable-rendering.md)。三类证据必须齐全，文件内路径以所在 JSON 文件目录为基准或使用绝对路径。完整交付检查还需要 [requirements-render.txt](../requirements-render.txt) 中的 pypdfium2 独立读取 PDF 实际页数，不能只相信报告写的页数；缺少该依赖时页面证据不能通过完整校验。图片生成成功不等于看过图片，哈希正确也不等于视觉判断正确。
 

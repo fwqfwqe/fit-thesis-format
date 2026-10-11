@@ -41,7 +41,8 @@ def prepare(source, work):
         raise ValueError('Work directory must be new; no files will be overwritten')
     required = ['SKILL.md', 'START_HERE.md', 'agent-tools.json', 'requirements.txt',
                 'references/style-spec.json', 'references/workflow.md',
-                'references/format-requirements.md', 'assets/fit-economics-management-template.docx']
+                'references/format-requirements.md', 'scripts/review_plan.py',
+                'assets/fit-economics-management-template.docx']
     missing = [name for name in required if not (ROOT / name).is_file()]
     if missing:
         raise ValueError('Incomplete skill package: ' + ', '.join(missing))
@@ -82,17 +83,19 @@ def prepare(source, work):
     save(work / 'citation-map.draft.json', {
         'schema_version': 1, 'source_sha256': original_sha, 'reviewed': False, 'spans': [],
         'instruction': 'Review citation-inventory.json and actual bibliography boundaries. Do not superscript formula/array/numeric markers. Re-inspect after previous edits.'})
+    from review_plan import create_review_plan
+    create_review_plan(backup, work / 'review', draft_path=work / 'style-map.draft.json')
     todo = '''# 下一步：先审核，不要直接生成“完成稿”
 
 这里已经保留原稿并运行静态检查，尚未排版或查看打印页面。
 
 1. 读取 skill 的 SKILL.md、references/format-requirements.md 和 references/workflow.md。
-2. 读取 audit.md 及三份 inventory，结合原稿确认每个角色、标题和区域边界。
-3. 三个 *.draft.json 只是待审草稿，不能直接交给修改命令；不能把建议自动当成已确认。
-4. 确认后生成正式映射，只修用户授权的格式。每阶段保留输入/输出和报告，并重新绑定准确输入哈希。
+2. 读取 audit.md 及三份 inventory；按 review/index.json 逐批阅读 chunk，确认全文每段、每表及已有页眉脚/脚注，不能用首尾抽样代替全文。
+3. 三个 *.draft.json 只是待审草稿；按 references/long-documents.md 填写各 chunk 的角色或逐项保留原因。未审记录保持未审，续跑从未审块继续。
+4. 用 review_plan.py assemble 合并全部 chunk，生成正式 style-map 和 coverage.json，再对完整副本执行。不要把论文分成独立DOCX后重新拼接。每阶段保留输入/输出和报告，并重新绑定准确输入哈希。
 5. 基础助手不重建学校封面、旧文自动编号或公式；不能改套一个新样式就宣称全部完成。未实现的项目须列清。
 6. 渲染最终 DOCX，实际查看每一页。目录代码正确不等于缓存更新；TOC、显示标题编号、奇偶页眉都要看。
-7. 运行 delivery_check.py；仅有静态结果或缺少证据时，交付措辞必须是“未验收稿/部分完成”，不能称为合格排版稿。
+7. 运行 delivery_check.py，提供 --coverage，修改过的文档还必须提供 --chain；仅有静态结果或缺少证据时，交付措辞必须是“未验收稿/部分完成”，不能称为合格排版稿。
 
 原稿基线是 baseline.json 和 original.docx，后续不能用成稿替换它们。
 '''
@@ -104,6 +107,7 @@ def prepare(source, work):
               'work_directory': str(work), 'source_unchanged': True, 'source_sha256': original_sha,
               'summary': audit.get('summary', {}),
               'next_read': str(work / 'START.md'),
+              'review_index': str(work / 'review' / 'index.json'),
               'remaining_steps': ['Review mappings against the paper', 'Execute supported formatting changes',
                                   'Check unchanged research content', 'Render and review every final page', 'Run delivery_check']}
     save(work / 'prepare-result.json', result)
