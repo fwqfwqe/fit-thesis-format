@@ -50,4 +50,4 @@ python fit-thesis-format/scripts/format_audit.py "论文.docx" --json "格式审
 - `package-manifest.json`：文件大小与 SHA-256 校验值。
 - `requirements.txt`：本次核验的 Python 依赖版本。
 
-本仓库为私有备份，保留学校范本及格式证据原件；没有上传用户研究论文、数据集或本地运行日志。
+本仓库为公开的 skill 源码与安装包备份，保留学校范本及格式证据原件；没有上传用户研究论文、数据集或本地运行日志。
