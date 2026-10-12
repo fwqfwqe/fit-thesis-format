@@ -45,7 +45,8 @@
               "apply_citations",
               "validate_controls",
               "prepare",
-              "delivery_check"
+              "delivery_check",
+              "apply_narrative_citations"
             ]
           },
           "scope": {
@@ -53,7 +54,8 @@
             "enum": [
               "styles",
               "layout",
-              "citations"
+              "citations",
+              "narrative_citations"
             ],
             "default": "styles",
             "description": "Only inspect and verify accept scope."
@@ -295,6 +297,25 @@
               "action",
               "source",
               "output",
+              "report"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "properties": {
+              "action": {
+                "const": "apply_narrative_citations"
+              },
+              "source": {},
+              "output": {},
+              "mapping": {},
+              "report": {}
+            },
+            "required": [
+              "action",
+              "source",
+              "output",
+              "mapping",
               "report"
             ],
             "additionalProperties": false

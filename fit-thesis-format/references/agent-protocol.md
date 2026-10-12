@@ -28,7 +28,7 @@ python -m pip install -r fit-thesis-format/requirements.txt
 
 不要假定某个机器的用户名或解释器路径存在。宿主有自己的依赖环境规则时使用该环境。文件路径必须是工具所在机器可读的真实路径；上传附件的内部ID需要先通过宿主文件工具落实为文件。
 
-## v7：先准备原稿与全文审核计划
+## v8：先准备原稿与全文审核计划
 
 下面路径以包含 `fit-thesis-format/` 的目录为当前工作目录；若使用 `bootstrap.py --dest package-new`，可先切换到 `package-new`，或在脚本路径前加 `package-new/`。
 
@@ -40,9 +40,9 @@ python fit-thesis-format/scripts/prepare.py --source "论文.docx" --work-dir wo
 
 - `original.docx` 和 `baseline.json`：原稿副本与最初内容记录，不得重设基线掩盖变化。
 - `doctor.json`：环境发现；不等于 Word 或其他渲染引擎已经运行成功。
-- `styles-inventory.json`、`layout-inventory.json`、`citation-inventory.json`：实际原稿的三个清单。
+- `styles-inventory.json`、`layout-inventory.json`、`citation-inventory.json`、`narrative-citation-inventory.json`：实际原稿的四个清单。
 - `audit.json`、`audit.md`：修改前审核，不可充当修改后复核。
-- `style-map.draft.json`、`layout-map.draft.json`、`citation-map.draft.json`：待审映射草稿，未经语义确认不能交给 apply。
+- `style-map.draft.json`、`layout-map.draft.json`、`citation-map.draft.json`、`narrative-citation-map.draft.json`：待审映射草稿，未经语义确认不能交给 apply。
 - `review/index.json`、`review/chunks/chunk-*.json`：绑定完整原稿的项目索引与逐批审核文件，保留所有段落、表格及其他文档区域的定位和原文。
 - `START.md`、`prepare-result.json`：下一步操作及这次准备的真实结果。
 
@@ -105,7 +105,13 @@ doctor 是候选能力发现，不启动渲染程序或验证字体。必须实�
 }
 ```
 
-完整参数与可用动作在[`agent-tools.json`](../agent-tools.json)。`inspect`和`verify`的`scope`可选`styles`、`layout`、`citations`。`apply_styles`、`apply_layout`、`apply_citations`需要`source`、`output`、`mapping`、`report`，不能省掉Agent对语义角色的判断或SHA绑定。`validate_controls`用于原生编号及公式结构检查，不是对任意原稿的完整合格判定。
+完整参数与可用动作在[`agent-tools.json`](../agent-tools.json)。`inspect`和`verify`的`scope`可选`styles`、`layout`、`citations`、`narrative_citations`。`apply_styles`、`apply_layout`、`apply_citations`、`apply_narrative_citations`需要`source`、`output`、`mapping`、`report`，不能省掉Agent对语义角色的判断或SHA绑定。`validate_controls`用于原生编号及公式结构检查，不是对任意原稿的完整合格判定。
+
+`citations`只处理已存在的数字方括号上标，逐字保留内容。`narrative_citations`用于用户已经要求引用一致性修正的场景：先按[引用一致性](citation-consistency.md)查证本稿已有书目，再有限修复正文作者显示和缺失号码。不能仅因为存在作者年份就猜测文献或自动接受候选；论述和文末条目不改变。其独立阶段使用真实源码绑定记录，并以同一scope进行verify，例如：
+
+```json
+{"action":"apply_narrative_citations","source":"styled.docx","output":"narrative.docx","mapping":"narrative-map.json","report":"narrative-report.json"}
+```
 
 确实需要样式例外时，在正式角色映射中使用 `style_overrides`，并由 apply 和 verify 读取同一份映射。例如下列片段**只说明字段形状，24 磅不能未经检查照抄**：
 
@@ -160,7 +166,7 @@ def invoke_fit_thesis(arguments, skill_dir, work_dir):
 
 “检查→修改→核对”可以迭代，但每次都保留原始基线，不能拿修改稿重设基线掩盖内容变化。普通动作返回成功只代表该动作执行完成；查看`render_review_performed`及`checks`中的实际检查状态，脚本不会冒充视觉审核。
 
-## v7：完整覆盖、内容与页面证据
+## v8：完整覆盖、内容与页面证据
 
 候选稿完成后，先重新审核和核对原稿：
 
@@ -189,7 +195,7 @@ python fit-thesis-format/scripts/delivery_check.py --source "论文.docx" --fina
 }
 ```
 
-只列实际执行的阶段，每阶段必须连接上一阶段的真实输出；检查器重新运行对应 verify，不相信旧报告里的 `ok`。当前链仅支持 `styles`、`citations`、`layout`。**自定义封面重建、章号改写、公式转写、附录移动、域缓存刷新等转换，当前没有通用重放核验器，不能用 `allow_changes`、任意白名单或一句人工确认绕过。** 此类变化须保留专门核验结果，并在当前交付检查中标为未验收，不能声称自动检查已通过。
+只列实际执行的阶段，每阶段必须连接上一阶段的真实输出；检查器重新运行对应 verify，不相信旧报告里的 `ok`。当前链支持 `styles`、`citations`、`layout`，以及有真实来源绑定重放核验器的 `narrative_citations`。后者只接受上述作者显示及本稿已有条目的标号修正，不能用于任意正文改字。**自定义封面重建、章号改写、公式转写、附录移动、域缓存刷新等转换，当前没有通用重放核验器，不能用 `allow_changes`、任意白名单或一句人工确认绕过。** 此类变化须保留专门核验结果，并在当前交付检查中标为未验收，不能声称自动检查已通过。
 
 JSON 入口使用同名 `coverage` 字段，路径仍按调用进程当前目录解析。例如：
 

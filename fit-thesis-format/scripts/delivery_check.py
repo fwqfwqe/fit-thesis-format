@@ -42,7 +42,7 @@ def verify_chain(source, final, chain_path):
     summaries = []
     with tempfile.TemporaryDirectory(prefix='fit-delivery-check-') as temp:
         for index, stage in enumerate(stages):
-            if not isinstance(stage, dict) or stage.get('scope') not in ('styles', 'layout', 'citations'):
+            if not isinstance(stage, dict) or stage.get('scope') not in ('styles', 'layout', 'citations', 'narrative_citations'):
                 raise ValueError('Unsupported stage; custom structural edits need a separately implemented replay verifier')
             input_path = evidence_path(stage.get('source'), chain_path.parent)
             output = evidence_path(stage.get('output'), chain_path.parent)

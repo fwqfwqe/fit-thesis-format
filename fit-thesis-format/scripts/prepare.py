@@ -41,7 +41,7 @@ def prepare(source, work):
         raise ValueError('Work directory must be new; no files will be overwritten')
     required = ['SKILL.md', 'START_HERE.md', 'agent-tools.json', 'requirements.txt',
                 'references/style-spec.json', 'references/workflow.md',
-                'references/format-requirements.md', 'scripts/review_plan.py',
+                'references/format-requirements.md', 'scripts/review_plan.py', 'scripts/narrative_citations.py',
                 'assets/fit-economics-management-template.docx']
     missing = [name for name in required if not (ROOT / name).is_file()]
     if missing:
@@ -67,7 +67,7 @@ def prepare(source, work):
                 'style_spec_sha256': sha(ROOT / 'references' / 'style-spec.json')}
     save(work / 'baseline.json', baseline)
     for scope, name in [('styles', 'styles-inventory.json'), ('layout', 'layout-inventory.json'),
-                        ('citations', 'citation-inventory.json')]:
+                        ('citations', 'citation-inventory.json'), ('narrative_citations', 'narrative-citation-inventory.json')]:
         invoke({'action': 'inspect', 'scope': scope, 'source': str(backup), 'report': str(work / name)})
     invoke({'action': 'audit', 'source': str(backup), 'report': str(work / 'audit.json'),
             'markdown': str(work / 'audit.md')})
@@ -83,6 +83,9 @@ def prepare(source, work):
     save(work / 'citation-map.draft.json', {
         'schema_version': 1, 'source_sha256': original_sha, 'reviewed': False, 'spans': [],
         'instruction': 'Review citation-inventory.json and actual bibliography boundaries. Do not superscript formula/array/numeric markers. Re-inspect after previous edits.'})
+    save(work / 'narrative-citation-map.draft.json', {
+        'schema_version': 1, 'source_sha256': original_sha, 'reviewed': False, 'records': [],
+        'instruction': 'Read references/citation-consistency.md. Review author/year narratives against exact existing bibliography entries; no invented author, year, number or automatic candidate acceptance. Only perform author-display/mark changes when citation consistency is authorized. Bind the map to the exact preceding DOCX.'})
     from review_plan import create_review_plan
     create_review_plan(backup, work / 'review', draft_path=work / 'style-map.draft.json')
     todo = '''# 下一步：先审核，不要直接生成“完成稿”
@@ -90,8 +93,8 @@ def prepare(source, work):
 这里已经保留原稿并运行静态检查，尚未排版或查看打印页面。
 
 1. 读取 skill 的 SKILL.md、references/format-requirements.md 和 references/workflow.md。
-2. 读取 audit.md 及三份 inventory；按 review/index.json 逐批阅读 chunk，确认全文每段、每表及已有页眉脚/脚注，不能用首尾抽样代替全文。
-3. 三个 *.draft.json 只是待审草稿；按 references/long-documents.md 填写各 chunk 的角色或逐项保留原因。未审记录保持未审，续跑从未审块继续。
+2. 读取 audit.md 及结构/引用 inventory；按 review/index.json 逐批阅读 chunk，确认全文每段、每表及已有页眉脚/脚注，不能用首尾抽样代替全文。
+3. *.draft.json 只是待审草稿；按 references/long-documents.md 填写各 chunk 的角色或逐项保留原因。作者年份叙述还要对照文末核对漏号、人数和年份基线；依据 citation-consistency.md 判断是否已有引用规范化授权。未审记录保持未审，续跑从未审块继续。
 4. 用 review_plan.py assemble 合并全部 chunk，生成正式 style-map 和 coverage.json，再对完整副本执行。不要把论文分成独立DOCX后重新拼接。每阶段保留输入/输出和报告，并重新绑定准确输入哈希。
 5. 基础助手不重建学校封面、旧文自动编号或公式；不能改套一个新样式就宣称全部完成。未实现的项目须列清。
 6. 渲染最终 DOCX，实际查看每一页。目录代码正确不等于缓存更新；TOC、显示标题编号、奇偶页眉都要看。

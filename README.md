@@ -1,12 +1,12 @@
-# 福州理工学院论文格式 · v7
+# 福州理工学院论文格式 · v8
 
 **如果用户只发了这个 GitHub 链接，先读下面的启动指南，取得并校验完整包，再检查自己的执行能力。只读到首页，不能开始重新生成论文。**
 
-[AI 单文件启动指南](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/fit-thesis-format/START_HERE.md) · [下载 v7 完整包](https://github.com/fwqfwqe/fit-thesis-format/releases/download/v7/fit-thesis-format-v7.zip) · [当前包校验清单](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/package-manifest.json) · [下载校验工具](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/bootstrap.py)
+[AI 单文件启动指南](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/fit-thesis-format/START_HERE.md) · [下载 v8 完整包](https://github.com/fwqfwqe/fit-thesis-format/releases/download/v8/fit-thesis-format-v8.zip) · [当前包校验清单](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/package-manifest.json) · [下载校验工具](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/bootstrap.py)
 
 本项目提供福州理工学院经济管理学院的格式规则、模板和执行工具，不绑定 AI 品牌。**能否完成排版，取决于当前会话实际拥有的文件、代码、文档和看图工具。** GPT 网页版、WorkBuddy 或其他 Agent 都按实际能力检查，不根据产品名字承诺成功。
 
-已完成 60 项工具回归及独立模型长文执行测试，具体通过范围、未通过项目和外部产品接入限制见[实际测试记录](VALIDATION.md)。
+v8 已完成 109 项工具回归及独立 Agent 引用样例执行，另保留 v7 长文测试记录；具体通过范围、未通过项目和外部产品接入限制见[实际测试记录](VALIDATION.md)。
 
 ## 用户怎么用
 
@@ -33,7 +33,7 @@
 python bootstrap.py --dest package-new
 ```
 
-`package-new` 必须尚不存在。下载工具使用标准库取得仓库**当前**校验清单和对应 ZIP，逐项校验后解压到 `package-new/fit-thesis-format/`。记录实际取得的版本；不要把不同版本的 ZIP、清单或规则混用。离线方式及固定 v7 的用法见[启动指南](fit-thesis-format/START_HERE.md)。
+`package-new` 必须尚不存在。下载工具使用标准库取得仓库**当前**校验清单和对应 ZIP，逐项校验后解压到 `package-new/fit-thesis-format/`。记录实际取得的版本；不要把不同版本的 ZIP、清单或规则混用。离线方式及固定 v8 的用法见[启动指南](fit-thesis-format/START_HERE.md)。
 
 在已经满足依赖的环境直接运行；缺依赖且宿主允许安装时，使用包内 `requirements.txt`：
 
@@ -42,7 +42,7 @@ python -m pip install -r package-new/fit-thesis-format/requirements.txt
 python package-new/fit-thesis-format/scripts/prepare.py --source "论文.docx" --work-dir work-new
 ```
 
-`prepare` 只读原稿，在新的工作目录生成原稿副本、内容基线、三份结构清单、审核报告、待审映射草稿、`review/index.json` 与分批审核文件，以及 `START.md` 操作步骤。按批阅读原文并保存决定，全部完成后生成合并映射和 `coverage.json`。**它不会完成排版；未知角色与疑似标题须确认，不能自动把建议当决定。** 原有公式、自动编号、目录域和复杂对象需要按原结构保留，不能重建成普通文字。
+`prepare` 只读原稿，在新的工作目录生成原稿副本、内容基线、样式/布局/既有引用/作者年份叙述四份清单、审核报告、待审映射草稿、`review/index.json` 与分批审核文件，以及 `START.md` 操作步骤。按批阅读原文并保存决定，全部完成后生成合并映射和 `coverage.json`。**它不会完成排版；未知角色与疑似标题须确认，不能自动把建议当决定。** 原有公式、自动编号、目录域和复杂对象需要按原结构保留，不能重建成普通文字。
 
 长论文同样必须审核全部项目；每项明确选择格式角色，或说明具体保留原因。分批的是审核工作，修改时仍处理完整 DOCX，每阶段都保留完整文件。覆盖完整不代表格式合格，全部标成“保留”也不能免除格式与逐页检查。操作见[长文完整覆盖与断点续审](fit-thesis-format/references/long-documents.md)。
 
@@ -71,6 +71,8 @@ python package-new/fit-thesis-format/scripts/delivery_check.py --source "论文.
 ## 格式与手调
 
 保留学校封面和诚信承诺书、四级自动编号、两级目录、真实奇偶页眉、连续页码、可编辑公式和完整“公式（x-x）”。独立公式不用表格、文本框或边框；正文引用编号上标，作者年份保持基线；已有附录保留并置于最后的致谢之前。
+
+v8 增加[引用一致性审核与有限修正](fit-thesis-format/references/citation-consistency.md)：检查漏引用号及作者显示，一位写该作者；**两位中英文都用“和”，三位及以上中文用“等”、英文用“et al.”**。文末三位以内全列、超过三位列前三位加等。用户已经要求修复引用时，从本稿已有书目确认来源后，可单独规范作者显示及补入缺失标号，完整 `[n]` 上标，年份和姓名保持基线；研究论述和书目全文仍保留。来源不明、同年歧义和复杂对象须说明，不能凭截图猜编号。
 
 Word 中通过“开始→样式→修改”统一手调。详细要求在[完整 skill](fit-thesis-format/SKILL.md)，渲染方法和证据记录在[便携渲染说明](fit-thesis-format/references/portable-rendering.md)。支持 skill 的宿主可加载完整文件夹；`agents/openai.yaml` 是可选界面配置。
 

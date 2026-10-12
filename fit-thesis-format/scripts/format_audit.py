@@ -1158,6 +1158,67 @@ class Audit:
                  "OOXML 可识别对象和 sSub/sSup 等结构，不能可靠判断普通字母是否数学变量，也不能证明上下标的学术含义正确；逐项对原稿人工核查。", "requires_render_review")
 
     def check_citations(self):
+        from narrative_citations import inspect_parts
+        narrative = inspect_parts(self.parts)
+        matches = defaultdict(list)
+        for match in narrative.get("matches", narrative["candidates"]):
+            matches[match["pid"]].append(match)
+        self.citation_review = {
+            "bibliography_entry_count": len(narrative["references"]),
+            "matched_author_year_count": sum(len(values) for values in matches.values()),
+            "candidate_count": len(narrative["candidates"]),
+            "automatic_reference_assignment": False,
+            "notes": narrative["notes"],
+        }
+        # Bibliography listing differs from the narrative display convention.
+        # Inspection is advisory; never shorten a real reference entry here.
+        for reference in narrative["references"]:
+            authors = reference.get("authors", [])
+            truncated = reference.get("truncation")
+            problems = []
+            if len(authors) > 3 and not truncated:
+                problems.append("more_than_three_authors_listed_without_truncation")
+            if truncated and len(authors) != 3:
+                problems.append("truncation_does_not_follow_three_listed_authors")
+            area = reference.get("author_list", {}).get("expected_text", "")
+            if len(authors) > 1 and re.search(r"[，、;；&]|\band\b|和|与", area):
+                problems.append("author_separator_is_not_an_English_comma")
+            if problems:
+                self.add("warning", "reference.author_listing_needs_review", self.locate(reference["pid"]),
+                         {"author_list": area, "listed_author_count": len(authors),
+                          "truncation": truncated, "problems": problems},
+                         "文末三位以内全列，超过三位列前三位后加等或 et al.，作者之间用英文逗号",
+                         "对照完整原条目查证作者名单；严格内容模式只报告，不能套正文三人简称规则或自动改文末条目。",
+                         "requires_content_authorization", "low")
+        expectations = {
+            "missing_numeric_marker": (
+                "已确认引用在所指内容末尾、句号前带与本稿书目一致的完整 [n] 上标",
+                "核对完整论述与已有书目，确定引用范围及号码后记录来源映射；纯格式模式只报告，不自动补号。"),
+            "author_count_needs_review": (
+                "本包统一写法：一位写该作者；两位中英文均用和；三位及以上中文首作者加等、英文首作者加 et al.",
+                "核对文末已列作者；正文惯例与文末三位以内全列规则不同。已有引用修正授权时按来源映射改，纯格式模式保留字符。"),
+            "reference_ambiguous": (
+                "每处引用对应经过确认的现有完整书目条目",
+                "同作者同年份或多条书目不得自动选第一条；确认完整条目及引用内容后绑定准确书目 PID。"),
+            "numeric_marker_needs_review": (
+                "正文已写号码与所述作者年份对应的现有书目一致",
+                "已有数字号不等于引用正确；核对号码、引用范围及完整书目，错号或多文献并引保留人工复核，不自动改号。"),
+        }
+        for candidate in narrative["candidates"]:
+            pid = candidate["pid"]
+            role = self.roles.get(pid, (None,))[0]
+            if role not in {"body", "body_math", "cn_abstract", "en_abstract"}:
+                continue
+            for issue in candidate["issues"]:
+                if issue not in expectations:
+                    continue
+                expected, recommendation = expectations[issue]
+                self.add("warning", "citation." + issue,
+                         self.locate(pid, character_span=[candidate["start"], candidate["end"]]),
+                         {"author_year": candidate["expected_text"],
+                          "reference_pids": candidate["reference_pids"],
+                          "eligible_structure": candidate["eligible_structure"]},
+                         expected, recommendation, "requires_role_review", "low")
         token = re.compile(r"\[\s*\d+(?:\s*[,，–—-]\s*\d+)*\s*\]")
         for pid, (role, confidence, _) in self.roles.items():
             p = self.ps[pid]
@@ -1180,12 +1241,24 @@ class Audit:
                              {"token": match.group(), "runs": effects}, expected,
                              "正文确认是文献编号后对完整方括号施加引用上标；文末著录编号保持基线。数组/数据/代码不能按文献处理。",
                              "auto_fixable" if confidence == "high" and role == "reference" else "requires_role_review", confidence)
-            for ri, t, rp in runs:
-                va = pvalue(rp, "vertAlign", default="baseline")
-                if va != "baseline" and re.search(r"[（(](?:19|20)\d{2}[）)]", t):
-                    self.add("warning", "citation.year_not_baseline", self.locate(pid, run_index=ri),
-                             {"text": short(t), "vertAlign": va}, "作者姓名、连接词和括号内年份保持正文基线",
-                             "确认这是作者年份叙述后仅修复年份格式；公式、脚注及数学下标不得误清除。", "requires_role_review")
+            # Character spans cover split Word runs, including the brackets.
+            baseline_spans = [(m.start(), m.end(), "citation.year_not_baseline")
+                              for m in re.finditer(r"[（(]\s*(?:19|20)\d{2}[a-z]?\s*[）)]", full)]
+            baseline_spans += [(m["start"], m["end"], "citation.author_year_not_baseline")
+                               for m in matches[pid]]
+            for lo, hi, category in baseline_spans:
+                pos, effects = 0, []
+                for ri, t, rp in runs:
+                    va = pvalue(rp, "vertAlign", default="baseline")
+                    position = pvalue(rp, "position", default="0")
+                    if pos < hi and pos + len(t) > lo and (va != "baseline" or position not in {"0", None}):
+                        effects.append({"run_index": ri, "vertAlign": va, "position": position})
+                    pos += len(t)
+                if effects:
+                    self.add("warning", category, self.locate(pid, character_span=[lo, hi]),
+                             {"text": full[lo:hi], "runs": effects}, "作者姓名、连接词和括号内年份保持正文基线",
+                             "确认作者年份引用后仅修复对应字符格式；完整数字引用方括号保留上标，公式、脚注和数学下标不得误清除。",
+                             "requires_role_review")
             if role in {"body", "body_math"} and re.search(r"公式\s*（\s*\d+\s*[-－—]\s*\d+\s*）", full):
                 ff = fields(p)
                 if not any(re.match(r"\s*REF\b", f["instruction"], re.I) for f in ff):
@@ -1220,6 +1293,7 @@ class Audit:
                         "render_review_required": True, "not_a_final_compliance_certificate": True},
             "role_identification": {pid: {"role": role, "confidence": c, "basis": b} for pid, (role, c, b) in self.roles.items()},
             "coverage": self.coverage,
+            "citation_review": self.citation_review,
             "sections": self.sections, "issues": self.issues,
             "style_layout_exceptions": {
                 "native_front_layout_paragraph_ids": [pid for pid,(role,_,_) in self.roles.items() if role.startswith("cover_") or role.startswith("commitment_")],
@@ -1234,6 +1308,7 @@ class Audit:
                 "摘要页数、目录页码同步、标题悬孤、图表重叠和越界、跨页续表及签名日期须结合原生 Word/PDF 检查。",
                 "未执行文字修改、目录/编号/公式字段刷新或页面重排；报告不会改变论文。公式/标题编号迁移、新封面承诺书及缺失部分补写需已有明确授权。",
                 "引用模式可能对应数组/数据等，须核实为文献后再改上标；本工具不编造作者、年份、文献数量或缺失内容。",
+                "作者年份提示只匹配本稿可识别的书目姓名与年份，可能漏掉不支持的外文姓名、未列书目或其他写法；候选提示不是引用确认，须逐处审核全文。",
                 "致谢最后的静态判断依据已识别的实质结构标题，不能证明未识别散文、文本框或实际最后打印页归属；最终须看渲染的最后一页。",
                 "公式表格/文本框是本用户禁止的布局容器，结构迁移不等于删除学术内容。静态边框检查覆盖明确的表/单元格/段落边框，主题条件边线或绘图框仍须渲染复核。",
             ],

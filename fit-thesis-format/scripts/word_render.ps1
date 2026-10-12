@@ -63,6 +63,7 @@ $taskOriginalOptions = @{}
 $taskOriginalSecurity = $null
 $taskOriginalAlerts = $null
 $taskReport = $null
+$taskDoNotSave = 0
 try {
     # Always create a dedicated instance; never attach to an active user session.
     $taskApp = New-Object -ComObject Word.Application
@@ -141,7 +142,7 @@ try {
 } finally {
     # Close only objects created above. No process-name termination is used.
     if ($null -ne $taskDoc) {
-        try { $taskDoc.Close(0) } catch { Write-Warning "Could not close the owned document: $_" }
+        try { $taskDoc.Close([ref]$taskDoNotSave) } catch { Write-Warning "Could not close the owned document: $_" }
         Release-OwnedComObject $taskDoc
     }
     if ($null -ne $taskOptions) {
@@ -156,7 +157,7 @@ try {
             if ($null -ne $taskOriginalSecurity) { $taskApp.AutomationSecurity = $taskOriginalSecurity }
             if ($null -ne $taskOriginalAlerts) { $taskApp.DisplayAlerts = $taskOriginalAlerts }
         } catch { Write-Warning 'Could not restore an owned Word application setting.' }
-        try { $taskApp.Quit(0) } catch { Write-Warning "Could not quit the owned Word instance: $_" }
+        try { $taskApp.Quit([ref]$taskDoNotSave) } catch { Write-Warning "Could not quit the owned Word instance: $_" }
         Release-OwnedComObject $taskApp
     }
     [GC]::Collect()

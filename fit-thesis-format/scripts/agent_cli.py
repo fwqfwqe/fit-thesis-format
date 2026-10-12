@@ -23,9 +23,9 @@ import tempfile
 
 SCRIPTS = Path(__file__).resolve().parent
 ACTIONS = ("doctor", "inspect", "audit", "apply_styles", "verify", "apply_layout",
-           "apply_citations", "validate_controls", "prepare", "delivery_check")
+           "apply_citations", "apply_narrative_citations", "validate_controls", "prepare", "delivery_check")
 SCOPES = {"styles": "thesis_format.py", "layout": "thesis_layout.py",
-          "citations": "citation_style.py"}
+          "citations": "citation_style.py", "narrative_citations": "narrative_citations.py"}
 COMMON_LIMITATIONS = [
     "Only the requested static operation is performed; success is not a certificate of complete thesis compliance.",
     "No rendering, visual page review, native field update or displayed page-parity check is performed by this adapter.",
@@ -154,7 +154,7 @@ def plan(request, request_file=None):
                            "; missing fields: " + ", ".join(sorted(missing)))
     scope = request.get("scope", "styles")
     if not isinstance(scope, str) or scope not in SCOPES:
-        raise RequestError("INVALID_REQUEST", "scope must be styles, layout or citations")
+        raise RequestError("INVALID_REQUEST", "scope must be styles, layout, citations or narrative_citations")
     if "title" in request and (not isinstance(request["title"], str) or not request["title"].strip()):
         raise RequestError("INVALID_REQUEST", "title must be a nonempty string")
     for key in ("source", "mapping"):
@@ -199,8 +199,9 @@ def command_for(action, scope, request, reads, staged):
         return result
     if action == "validate_controls":
         return ["validate_academic_controls.py", p("source"), "--report", p("report")]
-    if action == "apply_citations" or (action == "verify" and scope == "citations"):
-        return ["citation_style.py", "verify" if action == "verify" else "apply",
+    if action in {"apply_citations", "apply_narrative_citations"} or (action == "verify" and scope in {"citations", "narrative_citations"}):
+        script = SCOPES[scope] if action == "verify" else SCOPES[action.removeprefix("apply_")]
+        return [script, "verify" if action == "verify" else "apply",
                 "--source", p("source"), "--output", p("output"), "--map", p("mapping"), "--report", p("report")]
     script = SCOPES[scope] if action == "verify" else SCOPES[action.removeprefix("apply_")]
     arguments = (["verify", p("output"), "--source", p("source")] if action == "verify"
@@ -389,6 +390,8 @@ def execute(request, request_file=None):
             response["limitations"].append("Audit findings are heuristics and static checks. ok=true means reports were produced, not that the thesis passed every rule.")
         if action == "validate_controls":
             response["limitations"].append("validate_controls checks this package's native numbering/OMML convention for new examples; it is not a generic verdict on every existing thesis.")
+        if action == "apply_narrative_citations" or (action in {"inspect", "verify"} and scope == "narrative_citations"):
+            response["limitations"].append("Narrative consistency is a separately reviewed citation-only transformation: author display and an existing bibliography entry's mark may change; research prose and bibliography text may not. Candidates are not accepted mappings.")
         return response
 
 
