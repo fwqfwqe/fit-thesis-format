@@ -654,7 +654,7 @@ class Audit:
         ordered_roles = [r for _, r in sorted(seq)]
         if ordered_roles != [r for r in expected_order if r in ordered_roles]:
             self.add("warning", "structure.part_order", {"part": "word/document.xml"}, ordered_roles, expected_order,
-                     "按用户现有排版授权重排后置部分：参考文献、已有附录、致谢；整段保留内容与对象。无附录不生成，不能为改顺序删除附录文字。", "auto_fixable", "medium")
+                     "按已确认的学校要求重排后置部分：参考文献、已有附录、致谢；整段保留内容与对象。无附录不生成，不能为改顺序删除附录文字。", "auto_fixable", "medium")
         back_roles = {"chapter", "conclusion_heading", "reference_heading", "appendix_heading", "acknowledgement_heading"}
         structural = [(pid, role, confidence) for pid,(role,confidence,_) in self.roles.items() if role in back_roles]
         if not self.evidence["acknowledgement_heading"]:
@@ -666,7 +666,7 @@ class Audit:
             self.add("error", "structure.acknowledgement_not_last", self.locate(pid),
                      {"last_identified_structure_role": role, "acknowledgement_heading_ids": self.evidence["acknowledgement_heading"]},
                      "最后已识别实质部分为致谢；已有附录位于致谢之前",
-                     "依用户排版授权移动整段致谢至最后、已有附录至其前；保留全部段落、数据、公式、代码和对象，不删除或补写文章内容。",
+                     "按已确认的学校要求移动整段致谢至最后、已有附录至其前；保留全部段落、数据、公式、代码和对象，不删除或补写文章内容。",
                      "auto_fixable" if confidence == "high" else "requires_role_review", confidence)
         toc_fields = [f for f in fields(self.doc) if re.match(r"\s*TOC\b", f["instruction"], re.I)]
         if not toc_fields:

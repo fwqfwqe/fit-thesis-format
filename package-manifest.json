@@ -1,7 +1,17 @@
 {
   "skill": "fit-thesis-format",
-  "version": "v8",
+  "version": "v9",
   "files": [
+    {
+      "path": "fit-thesis-format/SKILL.md",
+      "size": 9818,
+      "sha256": "b644f27c28eec2c6d34389a72e6d2236e8a3dc12d5bc4da2525a30e7d76a5329"
+    },
+    {
+      "path": "fit-thesis-format/START_HERE.md",
+      "size": 11022,
+      "sha256": "c153ed0102936b1dd42350660403a491c3f4b67c411d1ec930ed191487241a26"
+    },
     {
       "path": "fit-thesis-format/agent-tools.json",
       "size": 13036,
@@ -9,8 +19,8 @@
     },
     {
       "path": "fit-thesis-format/agents/openai.yaml",
-      "size": 601,
-      "sha256": "4465d432d740366792994e7eb8089247523e6829d97604fda8774e9a53560783"
+      "size": 624,
+      "sha256": "38ec3dca7557dbcf5645e5629a78b2ef0df3a99d8acf5d487f9408b741c8257f"
     },
     {
       "path": "fit-thesis-format/assets/fit-economics-management-template.docx",
@@ -19,28 +29,28 @@
     },
     {
       "path": "fit-thesis-format/references/agent-protocol.md",
-      "size": 16290,
-      "sha256": "11bb3abcbf94ddc18dc8c4a4640808e3858931f9dfb8fbeebe05a70e03d1cf66"
+      "size": 16306,
+      "sha256": "65e319addf9c4cc75420961715ee161608461b8046ed1b7f9e2c6b15143d49d6"
     },
     {
       "path": "fit-thesis-format/references/audit-mode.md",
-      "size": 7687,
-      "sha256": "4718091ef423d71ed6463c58f2895e2750697ff04e02257f54a3602552579671"
+      "size": 7934,
+      "sha256": "806f3a369e2e5d2d064868d6c932facbaef5ddcb23cd76a31cd7be2119afca1a"
     },
     {
       "path": "fit-thesis-format/references/citation-consistency.md",
-      "size": 10991,
-      "sha256": "8898ddbcea6811378f99d4cdbd955cd9d35969e16d608ccc96023f49cb391a58"
+      "size": 11058,
+      "sha256": "b963556f337afb6de82fbe3ac2a4d93e927dbd30c973bce0dc84c313924e5d67"
     },
     {
       "path": "fit-thesis-format/references/examples-format-evidence.md",
-      "size": 9125,
-      "sha256": "266f914da79c5a20c022b7e93a606dab97f9614572f9525c2dc2075429abb45e"
+      "size": 9141,
+      "sha256": "867fd9cfbddc445fbf74ccfee1de697d4c3dfb6c7c2ea7257cfd141be1809bb1"
     },
     {
       "path": "fit-thesis-format/references/format-requirements.md",
-      "size": 15084,
-      "sha256": "35e4cd25164c580dcb2073c86c878afc8ebd196aa1d760c0d7e7a62318d663fa"
+      "size": 16107,
+      "sha256": "c24979ce04c94184f73105452cce73a03f92c931c7c56c4dcf89cb416f34b046"
     },
     {
       "path": "fit-thesis-format/references/long-documents.md",
@@ -54,13 +64,13 @@
     },
     {
       "path": "fit-thesis-format/references/portable-rendering.md",
-      "size": 9272,
-      "sha256": "cac7a94a4a1a5c31d290a0f22a6ada1d6fbe353c94d0e65f83e5057f2ee492e6"
+      "size": 9365,
+      "sha256": "932928d1883bdbc8041603e7fa27815bab029e1da4461f3b51e1a0dabd9a43de"
     },
     {
       "path": "fit-thesis-format/references/school-standard-mode.md",
-      "size": 6433,
-      "sha256": "d74f4be41c9f629b437a43ebbae9b9c443574b2e505d89c118b687405fc20eca"
+      "size": 7253,
+      "sha256": "8a1e6f7584fd26ae1ab4973d88222a25dceebefb2fc38b8fe5c0d7559a835469"
     },
     {
       "path": "fit-thesis-format/references/source-comments.json",
@@ -74,8 +84,8 @@
     },
     {
       "path": "fit-thesis-format/references/workflow.md",
-      "size": 17733,
-      "sha256": "d2b7e516962c3ab40a7e083cf033d25f47c2308e53e0ebaf696fe7879e8fe339"
+      "size": 17910,
+      "sha256": "cb07daf3c35a611ab6d238f180fc72735d9799b6766bea99ad84b64570fe4b4f"
     },
     {
       "path": "fit-thesis-format/requirements-render.txt",
@@ -109,8 +119,8 @@
     },
     {
       "path": "fit-thesis-format/scripts/format_audit.py",
-      "size": 107375,
-      "sha256": "ce23f65f23f28b162915c1fbeb1318c18defffc78f0fbf0990e45284842ca718"
+      "size": 107381,
+      "sha256": "10761c2e83f67e507a35a7b084f7eefe3df416689832d915ebc5205e2ebf49b8"
     },
     {
       "path": "fit-thesis-format/scripts/narrative_citations.py",
@@ -151,21 +161,11 @@
       "path": "fit-thesis-format/scripts/word_render.ps1",
       "size": 8236,
       "sha256": "4678e74b13e991d6bb5e72ffc176fc8edf237eaa3f726fe15fdb134f631f799c"
-    },
-    {
-      "path": "fit-thesis-format/SKILL.md",
-      "size": 8625,
-      "sha256": "668059705704476aa909df631bc6cf57ff1100bc0b483b05f81a25592d39da38"
-    },
-    {
-      "path": "fit-thesis-format/START_HERE.md",
-      "size": 10105,
-      "sha256": "22922b9c518b30428eb52bd27fd90f47241f4a9f358be7d5a270834fd0edac3e"
     }
   ],
   "archive": {
-    "path": "dist/fit-thesis-format-v8.zip",
-    "size": 368019,
-    "sha256": "e0d45567b2b952232f835210e1fc25d9d4c457532b7ea1ed33cf71c4a8325ecf"
+    "path": "dist/fit-thesis-format-v9.zip",
+    "size": 375094,
+    "sha256": "fd97289f574ba4dfe26c591957630831d48488a41c9f87a2b6968744f2070cea"
   }
 }

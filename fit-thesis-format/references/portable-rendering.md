@@ -41,7 +41,7 @@ soffice -env:UserInstallation=file:///ABSOLUTE/TEMP/unique-profile --headless --
 
 ## 只有已授权副本才更新字段
 
-新建示例通常需要更新目录、SEQ 和 REF；已有论文仅在用户授权该副本更新字段时使用下列模式。参数表示调用方确认已有授权，不能把设置开关本身当成用户授权。
+新建示例通常需要更新目录、SEQ 和 REF；按学校要求修改已有论文也包含在输出副本刷新这些排版字段。明确仅审核或禁止字段更新的任务不执行此步骤。参数表示调用方已核对任务范围，不能把设置开关本身当成扩大任务范围的授权。
 
 ```powershell
 & ./scripts/word_render.ps1 `

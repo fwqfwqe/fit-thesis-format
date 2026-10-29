@@ -1,16 +1,16 @@
-# 只收到 GitHub 链接时：从这里开始（v8）
+# 只收到 GitHub 链接时：从这里开始（v9）
 
 本文件写给接收仓库链接和用户论文的 AI / Agent。**先拿到完整资源并证明工具能执行，再修改原稿副本。** 不能只读网页说明，就根据提取文字新建一份 Word 并宣称完成格式修改。规则与脚本不绑定 AI 品牌，但网页浏览、文件执行和文档渲染是不同能力。
 
 ## 1. 取得完整包
 
-官方仓库：https://github.com/fwqfwqe/fit-thesis-format
+项目仓库：https://github.com/fwqfwqe/fit-thesis-format
 
-- v8 完整 ZIP：https://github.com/fwqfwqe/fit-thesis-format/releases/download/v8/fit-thesis-format-v8.zip
+- v9 完整 ZIP：https://github.com/fwqfwqe/fit-thesis-format/releases/download/v9/fit-thesis-format-v9.zip
 - 当前版本校验清单：https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/package-manifest.json
 - 本启动指南 raw：https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/fit-thesis-format/START_HERE.md
 - 标准库下载校验工具：https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/bootstrap.py
-- 固定 v8 校验清单：https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/v8/package-manifest.json
+- 固定 v9 校验清单：https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/v9/package-manifest.json
 
 有网络下载和 Python 工具时，把下载校验工具保存为 `bootstrap.py` 后运行：
 
@@ -18,12 +18,12 @@
 python bootstrap.py --dest package-new
 ```
 
-它按仓库当前清单下载相应版本的包，核对 ZIP 和逐个文件的 SHA256，再解压到尚不存在的 `package-new/fit-thesis-format/`。记录实际版本；本指南对应 v8，不能混用不同版本的脚本和清单。
+它按仓库当前清单下载相应版本的包，核对 ZIP 和逐个文件的 SHA256，再解压到尚不存在的 `package-new/fit-thesis-format/`。记录实际版本；本指南对应 v9，不能混用不同版本的脚本和清单。
 
-需要固定 v8 或环境没有网络时，用宿主文件工具取得**同版本**的 ZIP 与校验清单，保存为 `fit-thesis-format-v8.zip` 和 `manifest-v8.json`，然后运行：
+需要固定 v9 或环境没有网络时，用宿主文件工具取得**同版本**的 ZIP 与校验清单，保存为 `fit-thesis-format-v9.zip` 和 `manifest-v9.json`，然后运行：
 
 ```text
-python bootstrap.py --manifest manifest-v8.json --archive fit-thesis-format-v8.zip --dest package-new
+python bootstrap.py --manifest manifest-v9.json --archive fit-thesis-format-v9.zip --dest package-new
 ```
 
 如果当前会话不能下载但能读附件，让用户上传完整 ZIP 和原始论文 DOCX。仅收到 `SKILL.md`、网页文本或几张截图时，模板、脚本和原文结构仍未取得；不要假装资源齐全。没有 Python 时可用宿主解压和 SHA256 工具做相同校验；无法验证的部分如实记录。
@@ -92,7 +92,11 @@ python package-new/fit-thesis-format/scripts/review_plan.py assemble --source "w
 
 最低格式要点是：学校真实封面和诚信承诺书；四级标题“一、”“（一）”“1.”“（1）”；两级目录；真实奇偶页眉，正文奇数页是论文题目、偶数页是学校固定文字；可编辑数学结构与完整“公式（章-序号）”；独立公式无表格、文本框和边框；引用编号上标，作者年份基线；致谢最后，已有附录完整置于致谢前。**具体字号、间距、分节和转换限制必须读完整规则，不能只靠这段摘要执行。**
 
-引用须区分正文作者显示与文末作者著录：正文一位写该作者，两位中英文都用“和”；三位及以上中文首作者加“等”、英文首作者加“et al.”。这是用户明确要求的本包统一规则；文末三位以内全列，超过三位列前三位加“等”或“et al.”。学校明确要求完整 `[n]` 上标及书目著录。只改格式时不改作者字符、不补号码；用户已要求引用一致性修正时，读[引用一致性](references/citation-consistency.md)，查明本稿已有书目再用独立映射修正。候选提示不能自动充当已确认引用。
+本包依据学院原范本及2026-10-29使用者确认的学校补充要求执行；致谢最后、无框且无布局表的公式、正文作者人数写法均作为学校要求处理。原范本的历史批注保留作来源记录，不覆盖已确认的新要求。
+
+引用须区分正文作者显示与文末作者著录：正文一位写该作者，两位中英文都用“和”；三位及以上中文首作者加“等”、英文首作者加“et al.”。文末三位以内全列，超过三位列前三位加“等”或“et al.”。按学校要求改格式时，读[引用一致性](references/citation-consistency.md)，查明本稿已有书目再用独立映射规范作者显示及补入有确定来源的缺失标号；不改研究论述，不推测新文献。用户明确要求所有字符不变时只调整已有标记上标，需字符变更项另列报告。候选提示不能自动充当已确认引用。
+
+普通“按学校要求改格式”的请求已涵盖规范所必需的封面组件、自动编号、公式排版、页眉页脚、引用显示及附录顺序调整，不逐项重复索取授权。涉及缺失身份信息、无法辨认的公式或来源歧义时，先完成可核验部分，再询问缺失事实。分节须核对正文显示页码的奇偶、正文第一页页眉及所有偶数页页脚：页眉宋体五号居中、下单线0.5磅；页码Times New Roman小五居中；页眉页脚距页面边界各约1.5 cm。摘要目录大写罗马续号、正文阿拉伯1起，直到最后致谢连续。
 
 审核分批完成后，首次样式修改必须一次使用合并映射处理完整原稿副本；不要逐批另存论文再拼接。对每一阶段保存完整输入、映射、完整输出与核验报告，绑定准确 SHA256。学校封面替换、手写编号转换、公式转写等需要额外逐项核验；普通格式脚本不能自动完成所有这类转换。任何未完成的转换须列出，不能通过重设内容基线或忽略差异来取得“通过”。
 

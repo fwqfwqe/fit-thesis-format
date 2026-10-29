@@ -28,7 +28,7 @@ python -m pip install -r fit-thesis-format/requirements.txt
 
 不要假定某个机器的用户名或解释器路径存在。宿主有自己的依赖环境规则时使用该环境。文件路径必须是工具所在机器可读的真实路径；上传附件的内部ID需要先通过宿主文件工具落实为文件。
 
-## v8：先准备原稿与全文审核计划
+## v9：先准备原稿与全文审核计划
 
 下面路径以包含 `fit-thesis-format/` 的目录为当前工作目录；若使用 `bootstrap.py --dest package-new`，可先切换到 `package-new`，或在脚本路径前加 `package-new/`。
 
@@ -107,7 +107,7 @@ doctor 是候选能力发现，不启动渲染程序或验证字体。必须实�
 
 完整参数与可用动作在[`agent-tools.json`](../agent-tools.json)。`inspect`和`verify`的`scope`可选`styles`、`layout`、`citations`、`narrative_citations`。`apply_styles`、`apply_layout`、`apply_citations`、`apply_narrative_citations`需要`source`、`output`、`mapping`、`report`，不能省掉Agent对语义角色的判断或SHA绑定。`validate_controls`用于原生编号及公式结构检查，不是对任意原稿的完整合格判定。
 
-`citations`只处理已存在的数字方括号上标，逐字保留内容。`narrative_citations`用于用户已经要求引用一致性修正的场景：先按[引用一致性](citation-consistency.md)查证本稿已有书目，再有限修复正文作者显示和缺失号码。不能仅因为存在作者年份就猜测文献或自动接受候选；论述和文末条目不改变。其独立阶段使用真实源码绑定记录，并以同一scope进行verify，例如：
+`citations`只处理已存在的数字方括号上标，逐字保留内容。`narrative_citations`用于学校标准模式或单独要求引用一致性修正的场景：先按[引用一致性](citation-consistency.md)查证本稿已有书目，再有限修复正文作者显示和缺失号码。不能仅因为存在作者年份就猜测文献或自动接受候选；论述和文末条目不改变。其独立阶段使用真实源码绑定记录，并以同一scope进行verify，例如：
 
 ```json
 {"action":"apply_narrative_citations","source":"styled.docx","output":"narrative.docx","mapping":"narrative-map.json","report":"narrative-report.json"}
@@ -166,7 +166,7 @@ def invoke_fit_thesis(arguments, skill_dir, work_dir):
 
 “检查→修改→核对”可以迭代，但每次都保留原始基线，不能拿修改稿重设基线掩盖内容变化。普通动作返回成功只代表该动作执行完成；查看`render_review_performed`及`checks`中的实际检查状态，脚本不会冒充视觉审核。
 
-## v8：完整覆盖、内容与页面证据
+## v9：完整覆盖、内容与页面证据
 
 候选稿完成后，先重新审核和核对原稿：
 
@@ -219,4 +219,4 @@ JSON 入口使用同名 `coverage` 字段，路径仍按调用进程当前目录
 
 ## 本包配置不变
 
-通用的是AI接入方式，格式仍按福州理工学院经济管理学院范本及本包明确的覆盖规则：四级自动编号、真实奇偶页眉、无表格边框的可编辑公式、完整公式标签、致谢最后。外部用户当前明确要求优先；这些默认目标不自动授权补写或改写研究内容。
+通用的是AI接入方式，格式按福州理工学院经济管理学院范本及2026-10-29确认的学校要求：四级自动编号、真实奇偶页眉、无表格边框的可编辑公式、完整公式标签、致谢最后。外部用户当前明确要求优先；这些默认目标不自动授权补写或改写研究内容。

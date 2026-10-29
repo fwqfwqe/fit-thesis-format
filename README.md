@@ -1,20 +1,22 @@
-# 福州理工学院论文格式 · v8
+# 福州理工学院论文格式 · v9
 
 **如果用户只发了这个 GitHub 链接，先读下面的启动指南，取得并校验完整包，再检查自己的执行能力。只读到首页，不能开始重新生成论文。**
 
-[AI 单文件启动指南](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/fit-thesis-format/START_HERE.md) · [下载 v8 完整包](https://github.com/fwqfwqe/fit-thesis-format/releases/download/v8/fit-thesis-format-v8.zip) · [当前包校验清单](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/package-manifest.json) · [下载校验工具](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/bootstrap.py)
+[AI 单文件启动指南](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/fit-thesis-format/START_HERE.md) · [下载 v9 完整包](https://github.com/fwqfwqe/fit-thesis-format/releases/download/v9/fit-thesis-format-v9.zip) · [当前包校验清单](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/package-manifest.json) · [下载校验工具](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/bootstrap.py)
 
 本项目提供福州理工学院经济管理学院的格式规则、模板和执行工具，不绑定 AI 品牌。**能否完成排版，取决于当前会话实际拥有的文件、代码、文档和看图工具。** GPT 网页版、WorkBuddy 或其他 Agent 都按实际能力检查，不根据产品名字承诺成功。
 
-v8 已完成 109 项工具回归及独立 Agent 引用样例执行，另保留 v7 长文测试记录；具体通过范围、未通过项目和外部产品接入限制见[实际测试记录](VALIDATION.md)。
+v9 将 2026-10-29 确认的学校要求纳入统一执行规则：致谢最后、公式不用框或布局表、正文两位作者用“和”、三位及以上用首作者加“等／et al.”，并集中说明奇偶页眉与分节页码。规则依据为学院原范本及使用者确认的学校补充要求；这是非官方工具，不表示学校发布或认证了本仓库。具体测试范围见[实际测试记录](VALIDATION.md)。
 
 ## 用户怎么用
 
 把本仓库链接和原始论文 DOCX 一起交给 AI，并说：
 
-> 先按仓库的 START_HERE.md 取得并校验完整包，检查当前工具能做什么。用 prepare 建立原稿基线，分批审核全文，每一段都要确认角色或逐项说明保留原因，再合并映射对完整副本只改格式。不要因论文长而抽样、缩写或漏掉后半篇，不要从提取文字重新生成论文，不要丢失公式、目录、编号、图片、脚注或引用。最后核对全文覆盖、内容和每一页；做不到的环节要明确说明，未验收文件不能说成已完成。
+> 使用 fit-thesis-format，按学校要求修改这篇论文的格式。先按 START_HERE.md 取得完整包，用 prepare 建立原稿基线并逐批审核全文，在原稿副本上统一标题、摘要、目录、奇偶页眉、页码、图表、公式、引用和致谢顺序。保留研究内容、数据及原有文档对象，规范化涉及的编号、作者显示和结构移动逐项记录核验。最后检查全文覆盖、内容保留和每一页，交付可编辑 Word，并如实说明未完成项。
 
 如果 AI 只能浏览网页，它可以解释规则；如果它能读取论文、执行脚本或使用文档工具，才可以继续实际审核、修改。网络下载不可用但能读取 ZIP 附件时，可以把**完整 ZIP 和论文 DOCX**交给它，不能仅上传 `SKILL.md` 代替模板和脚本。
+
+支持 Codex skill 的环境可将完整 `fit-thesis-format/` 文件夹放入技能目录，使用 `$fit-thesis-format` 调用。仓库包含完整规则与辅助脚本；学校格式修改请求已涵盖所需规范化步骤，不必逐项重复确认。用户明确要求“任何字符不变”时，只应用不改变字符的格式，另列需要结构或文字调整的项目。
 
 ## 工作流程，用最简单的话说
 
@@ -33,7 +35,7 @@ v8 已完成 109 项工具回归及独立 Agent 引用样例执行，另保留 v
 python bootstrap.py --dest package-new
 ```
 
-`package-new` 必须尚不存在。下载工具使用标准库取得仓库**当前**校验清单和对应 ZIP，逐项校验后解压到 `package-new/fit-thesis-format/`。记录实际取得的版本；不要把不同版本的 ZIP、清单或规则混用。离线方式及固定 v8 的用法见[启动指南](fit-thesis-format/START_HERE.md)。
+`package-new` 必须尚不存在。下载工具使用标准库取得仓库**当前**校验清单和对应 ZIP，逐项校验后解压到 `package-new/fit-thesis-format/`。记录实际取得的版本；不要把不同版本的 ZIP、清单或规则混用。离线方式及固定 v9 的用法见[启动指南](fit-thesis-format/START_HERE.md)。
 
 在已经满足依赖的环境直接运行；缺依赖且宿主允许安装时，使用包内 `requirements.txt`：
 
@@ -72,7 +74,20 @@ python package-new/fit-thesis-format/scripts/delivery_check.py --source "论文.
 
 保留学校封面和诚信承诺书、四级自动编号、两级目录、真实奇偶页眉、连续页码、可编辑公式和完整“公式（x-x）”。独立公式不用表格、文本框或边框；正文引用编号上标，作者年份保持基线；已有附录保留并置于最后的致谢之前。
 
-v8 增加[引用一致性审核与有限修正](fit-thesis-format/references/citation-consistency.md)：检查漏引用号及作者显示，一位写该作者；**两位中英文都用“和”，三位及以上中文用“等”、英文用“et al.”**。文末三位以内全列、超过三位列前三位加等。用户已经要求修复引用时，从本稿已有书目确认来源后，可单独规范作者显示及补入缺失标号，完整 `[n]` 上标，年份和姓名保持基线；研究论述和书目全文仍保留。来源不明、同年歧义和复杂对象须说明，不能凭截图猜编号。
+| 常用设置 | 执行要求 |
+| --- | --- |
+| 页面 | A4纵向；上／左2.5 cm，下／右2 cm |
+| 正文 | 宋体小四，字母数字 Times New Roman；两端对齐、首行2字符、固定20磅 |
+| 标题与目录 | 四级标题“一、”“（一）”“1.”“（1）”；自动目录只到第二级 |
+| 正文奇数页眉 | 本篇论文题目；按正文显示页码判断奇偶 |
+| 正文偶数页眉 | 福州理工学院本科生毕业论文（设计） |
+| 页眉与页脚 | 页眉宋体五号居中、下单线0.5磅；页码TNR小五居中；距页面边界各约1.5 cm |
+| 页码 | 封面承诺书无页码；摘要目录大写罗马连续；正文阿拉伯1起至致谢连续 |
+| 分节检查 | 开启奇偶页不同，正文首页不能因首页不同漏页眉，偶数页脚不能漏页码 |
+
+摘要、标题各级、图表、公式和参考文献的完整数值，以[格式要求](fit-thesis-format/references/format-requirements.md)与[样式配置](fit-thesis-format/references/style-spec.json)为准。数学字体字号未被学院明确指定，不把工具示例默认字体当作硬性要求。
+
+[引用一致性审核与有限修正](fit-thesis-format/references/citation-consistency.md)检查漏引用号及作者显示：一位写该作者；**两位中英文都用“和”，三位及以上中文首作者加“等”、英文首作者加“et al.”**。文末三位以内全列、超过三位列前三位加等。按学校格式规范化引用时，从本稿已有书目确认来源后，可单独规范作者显示及补入缺失标号，完整 `[n]` 上标，年份和姓名保持基线；研究论述和书目全文仍保留。来源不明、同年歧义和复杂对象须说明，不能凭截图猜编号。
 
 Word 中通过“开始→样式→修改”统一手调。详细要求在[完整 skill](fit-thesis-format/SKILL.md)，渲染方法和证据记录在[便携渲染说明](fit-thesis-format/references/portable-rendering.md)。支持 skill 的宿主可加载完整文件夹；`agents/openai.yaml` 是可选界面配置。
 
