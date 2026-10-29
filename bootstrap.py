@@ -66,6 +66,8 @@ def install(dest, manifest_bytes, archive_bytes):
             payloads.append((path, data))
     for required in ('SKILL.md', 'START_HERE.md', 'scripts/prepare.py', 'scripts/delivery_check.py', 'scripts/review_plan.py',
                      'scripts/narrative_citations.py', 'references/citation-consistency.md',
+                     'scripts/template_hygiene.py', 'references/template-hygiene.md',
+                     'assets/fit-economics-management-template-clean.docx',
                      'assets/fit-economics-management-template.docx', 'references/style-spec.json'):
         if 'fit-thesis-format/' + required not in expected:
             raise ValueError('Incomplete current package: ' + required)

@@ -9,17 +9,18 @@ description: 按福州理工学院论文格式要求审核或修改已有DOCX，
 
 只有仓库链接或本说明时，先执行 [START_HERE.md](START_HERE.md)：取得并校验完整包，确认输入附件已成为工具能读取的真实文件，检查执行及渲染能力。不要只看首页就凭印象排版。`agent-tools.json` 是工具参数说明；它不自行注册工具，不提供网页 AI 缺少的文件读写或代码能力。
 
-v9 有 Python 时运行 `scripts/prepare.py --source ORIGINAL.docx --work-dir NEWDIR`，读取原稿基线、清单、审核和步骤文件，再按生成的 `review/index.json` 与 `review/chunks/` 逐批审核。完成全部决定后用 `review_plan.py assemble` 生成合并映射及覆盖报告，详见[长文完整覆盖与断点续审](references/long-documents.md)。只有文档 API 时，先实测其对象保留及内容核验能力；不足时完成可支持的审核，不生成冒充完整排版的文件。具体调用见[执行协议](references/agent-protocol.md)。
+v9.1 有 Python 时运行 `scripts/prepare.py --source ORIGINAL.docx --work-dir NEWDIR`，读取原稿基线、清单、审核和步骤文件，再按生成的 `review/index.json` 与 `review/chunks/` 逐批审核。完成全部决定后用 `review_plan.py assemble` 生成合并映射及覆盖报告，详见[长文完整覆盖与断点续审](references/long-documents.md)。只有文档 API 时，先实测其对象保留及内容核验能力；不足时完成可支持的审核，不生成冒充完整排版的文件。具体调用见[执行协议](references/agent-protocol.md)。
 
 ## 任务范围
 
 “按学校要求改格式”默认执行完整学校标准，包括封面承诺书、编号与目录、奇偶页眉页码、公式结构、来源已核实的作者显示规范化和附录移动；不为这些已包含的工作重复索要许可。只审核时不修改；仅当用户明确要求“全部字符不变／只改字体段落”时，才保留需字符或结构转换的位置并报告。缺失研究文字、个人信息、签名或无法辨认的公式不猜写。
 
-本包的学校规则由学院范本及2026-10-29使用者确认的要求组成；致谢最后、公式无框且不用布局表、正文作者人数写法均属已确认的学校要求。原范本历史批注保留作来源记录，遇冲突按[完整格式要求](references/format-requirements.md)执行；不声称另取得了新版官方文件。
+本包的学校规则由学院范本及2026-10-29使用者确认的要求组成；致谢最后、公式无框且不用布局表、正文作者人数写法均属已确认的学校要求。原范本历史批注仅保留作来源记录，复用封面等组件时使用[净化模板](assets/fit-economics-management-template-clean.docx)，不把教学批注带入论文。遇规则冲突按[完整格式要求](references/format-requirements.md)执行；不声称另取得了新版官方文件。
 
 ## 核心约束
 
-- **处理已有论文必须保留原结构。** 从原始 DOCX 的副本定点修改，不能从抽取的段落文字重新生成整篇论文。原有 OMML/MathType、自动编号、目录与交叉引用域、书签、图片、图表、嵌入对象、脚注尾注、批注及修订不得在“重建”中丢失或降级。
+- **处理已有论文必须保留原结构。** 从原始 DOCX 的副本定点修改，不能从抽取的段落文字重新生成整篇论文。原有 OMML/MathType、自动编号、目录与交叉引用域、书签、图片、图表、嵌入对象、脚注尾注、真实作者或导师批注及修订不得在“重建”中丢失或降级。
+- **模板批注不得进入成稿。** 默认从净化模板复用学校组件，原模板只作证据。删除范文正文不会自动删除独立批注部件；须按[模板批注与修订检查](references/template-hygiene.md)检查各 XML 区域、锚点、关系和内容类型登记。清理模板批注不接受或删除任何真实修订，也不清空用户原稿中的真实批注。审核意见写在论文外，不向最终 DOCX 新增审计批注。
 - **研究内容不改。** 不改写正文、标题名称、数据、变量含义、参考文献条目或附录代码。范本与范文仅提供格式，不能迁入其研究文字、作者信息、日期和文献。缺失内容保留空缺并说明。
 - **引用须核对来源。** 既有 `[n]` 用 `citation_style.py` 对完整方括号上标；作者—年份叙述须另查缺号和人数。正文按学校要求统一：一位写该作者；两位中英文都用“和”；三位及以上中文首作者加“等”、英文首作者加“et al.”。文末恰三位仍全列，超过三位列前三位加“等/et al.”，不能混用两个阈值。姓名、连接词、年份及年份括号保持正文基线。执行学校标准或单独引用规范化时，按[引用一致性](references/citation-consistency.md)从本稿已有文献核实作者、年份、序号，用 `narrative_citations.py` 单独记录和重验作者显示及缺号修复；论述与文末条目仍不改。明确的逐字不变任务才保留这些字符并报告需规范化的位置。
 - **全文必须覆盖。** 论文长也不能只看前几章、抽样代替全文、缩写原文或遗漏文末。逐批阅读全部段落、表格及其他文档区域；每项确认格式角色，或逐项记录具体保留原因。未知角色和疑似标题先结合上下文确认，不靠编号外观或样式名猜测。保存每批审核决定后可断点继续；合并后一次用完整映射修改完整 DOCX，各阶段保存完整输入输出，不拆成多份论文拼回。
@@ -28,7 +29,7 @@ v9 有 Python 时运行 `scripts/prepare.py --source ORIGINAL.docx --work-dir NE
 
 ## 必读规则与工作模式
 
-开始修改前读取[完整格式要求](references/format-requirements.md)、[样式数值](references/style-spec.json)及对应模式，不能只依据本页摘要操作。依据顺序是：当前用户明确要求与研究内容保留边界、2026-10-29确认的学校要求、范本明确批注、模板实际样式、范文共同表现。学校原件在 [assets](assets/fit-economics-management-template.docx)，批注证据见 [source-comments.json](references/source-comments.json)。
+开始修改前读取[完整格式要求](references/format-requirements.md)、[样式数值](references/style-spec.json)及对应模式，不能只依据本页摘要操作。依据顺序是：当前用户明确要求与研究内容保留边界、2026-10-29确认的学校要求、范本明确批注、模板实际样式、范文共同表现。[学校原件](assets/fit-economics-management-template.docx)与 [source-comments.json](references/source-comments.json)用于核对依据；复用组件一律从[净化模板](assets/fit-economics-management-template-clean.docx)开始，它只去除历史批注，仍须替换示例信息并落实当前规则。
 
 | 任务 | 执行资料 | 交付范围 |
 | --- | --- | --- |
@@ -36,6 +37,7 @@ v9 有 Python 时运行 `scripts/prepare.py --source ORIGINAL.docx --work-dir NE
 | 按学校要求修改已有论文 | [基础助手与映射](references/workflow.md)、[学校标准模式](references/school-standard-mode.md) | 完整执行学校格式；审查映射，在副本逐阶段修改和核验。 |
 | 长论文或分批审核 | [完整覆盖与断点续审](references/long-documents.md) | 所有项目均有明确决定，合并映射处理完整文件；覆盖不等于格式验收。 |
 | 封面、编号、公式等结构转换 | [学校标准模式](references/school-standard-mode.md) | 单独定位、记录及保留核验；基础脚本不会自动完成所有转换。 |
+| 模板复用与批注检查 | [模板批注与修订检查](references/template-hygiene.md) | 从净化模板取组件；检查历史批注及包内残留，保护原稿真实批注和修订。 |
 | 作者人数、引用、年份和上下标 | [范文格式证据](references/examples-format-evidence.md) | 只学习格式，严格内容模式下不补删作者或文献。 |
 | 页面验收 | [便携渲染](references/portable-rendering.md) | 渲染当前候选稿，实际逐页查看并绑定文件哈希。 |
 
@@ -55,4 +57,4 @@ v9 有 Python 时运行 `scripts/prepare.py --source ORIGINAL.docx --work-dir NE
 
 有看图能力时，页数多不是停止理由。按能看清文字的大小分批打开页面，保存已审页、未审页及具体问题，从首个未审页继续直至末页；发现问题也要继续检查后续页面。不能把“生成全部PNG”“抽查首中尾”或“全部标pending”当作已完成用户要求的全文审核。因工具故障确实无法继续时说明实际阻碍，不能把尚未执行的工作写成工具不支持。
 
-最终交付可编辑 DOCX 与简短的真实审核/修改说明，不把内部映射、日志或 QA 图塞进论文。手调方式是 Word“开始→样式→修改”。
+最终交付可编辑 DOCX 与简短的真实审核/修改说明，不把内部映射、日志、QA 图或审计批注塞进论文。`format_audit.py` 的批注检查纳入交付检查；不能只因 Word 不再显示批注就宣布包结构清理完成。修订计数按精确 XML 名称检查，`w:insideH`、`w:instrText` 不属于 `w:ins`。手调方式是 Word“开始→样式→修改”。

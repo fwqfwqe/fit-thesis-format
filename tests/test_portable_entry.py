@@ -134,6 +134,15 @@ class PortableEntryTests(unittest.TestCase):
         self.assertEqual(failed.returncode, 2)
         self.assertFalse(broken_destination.exists())
 
+    def test_prepare_rejects_missing_clean_template_before_creating_work(self):
+        package = self.local_package()
+        (package / 'assets' / 'fit-economics-management-template-clean.docx').unlink()
+        work = self.work / 'incomplete-package-job'
+        with patch.object(PREPARE, 'ROOT', package):
+            with self.assertRaisesRegex(ValueError, 'Incomplete skill package.*template-clean.docx'):
+                PREPARE.prepare(self.source, work)
+        self.assertFalse(work.exists())
+
     def test_prepare_is_read_only_and_draft_cannot_be_applied(self):
         package = self.local_package(); target = self.work / 'prepared'
         with patch.object(PREPARE, 'ROOT', package): result = PREPARE.prepare(self.source, target)

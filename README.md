@@ -1,12 +1,14 @@
-# 福州理工学院论文格式 · v9
+# 福州理工学院论文格式 · v9.1
 
 **如果用户只发了这个 GitHub 链接，先读下面的启动指南，取得并校验完整包，再检查自己的执行能力。只读到首页，不能开始重新生成论文。**
 
-[AI 单文件启动指南](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/fit-thesis-format/START_HERE.md) · [下载 v9 完整包](https://github.com/fwqfwqe/fit-thesis-format/releases/download/v9/fit-thesis-format-v9.zip) · [当前包校验清单](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/package-manifest.json) · [下载校验工具](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/bootstrap.py)
+[AI 单文件启动指南](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/fit-thesis-format/START_HERE.md) · [下载 v9.1 完整包](https://github.com/fwqfwqe/fit-thesis-format/releases/download/v9.1/fit-thesis-format-v9.1.zip) · [当前包校验清单](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/package-manifest.json) · [下载校验工具](https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/bootstrap.py)
 
 本项目提供福州理工学院经济管理学院的格式规则、模板和执行工具，不绑定 AI 品牌。**能否完成排版，取决于当前会话实际拥有的文件、代码、文档和看图工具。** GPT 网页版、WorkBuddy 或其他 Agent 都按实际能力检查，不根据产品名字承诺成功。
 
-v9 将 2026-10-29 确认的学校要求纳入统一执行规则：致谢最后、公式不用框或布局表、正文两位作者用“和”、三位及以上用首作者加“等／et al.”，并集中说明奇偶页眉与分节页码。规则依据为学院原范本及使用者确认的学校补充要求；这是非官方工具，不表示学校发布或认证了本仓库。具体测试范围见[实际测试记录](VALIDATION.md)。
+v9.1 增加[净化模板与批注检查](fit-thesis-format/references/template-hygiene.md)，防止复用学校组件时把范本历史批注带入论文；原范本仍保留作证据，用户原稿真实批注与修订默认保留。检查覆盖批注锚点、相关部件、关系和内容类型登记，按精确 XML 名称区分修订与表格边框、域代码。
+
+继续执行 v9 纳入的 2026-10-29 确认学校要求：致谢最后、公式不用框或布局表、正文两位作者用“和”、三位及以上用首作者加“等／et al.”，并逐节核对奇偶页眉与页码。规则依据为学院原范本及使用者确认的学校补充要求；这是非官方工具，不表示学校发布或认证了本仓库。具体测试范围见[实际测试记录](VALIDATION.md)。
 
 ## 用户怎么用
 
@@ -22,10 +24,10 @@ v9 将 2026-10-29 确认的学校要求纳入统一执行规则：致谢最后�
 
 1. **拿齐工具。** 下载完整包，检查有没有缺文件、下载错版本。
 2. **留下原稿。** 保存副本和内容记录，先找出格式问题。
-3. **分批读完全文。** 逐项确认标题、正文、公式、图表和参考文献；保存每批审核状态，可断点继续，最后合并映射修改完整副本。
+3. **分批读完全文。** 逐项确认标题、正文、公式、图表和参考文献；保存每批审核状态，可断点继续，最后合并映射修改完整副本。需要复用学校组件时从净化模板取用。
 4. **核对覆盖与内容。** 全部段落、表格和文末都有审核决定；检查文字、数字、公式、图片和引用有没有丢失或改变。
 5. **逐页看。** 检查实际页眉、分页、目录、公式和图表。
-6. **交付。** 给可编辑 Word 和真实的检查结果；未验收就明确标为未验收。
+6. **交付。** 核对模板批注及包结构残留，给可编辑 Word 和真实的检查结果；审核意见放在论文外，未验收就明确标为未验收。
 
 ## 有 Python 的 Agent：从这里运行
 
@@ -35,7 +37,7 @@ v9 将 2026-10-29 确认的学校要求纳入统一执行规则：致谢最后�
 python bootstrap.py --dest package-new
 ```
 
-`package-new` 必须尚不存在。下载工具使用标准库取得仓库**当前**校验清单和对应 ZIP，逐项校验后解压到 `package-new/fit-thesis-format/`。记录实际取得的版本；不要把不同版本的 ZIP、清单或规则混用。离线方式及固定 v9 的用法见[启动指南](fit-thesis-format/START_HERE.md)。
+`package-new` 必须尚不存在。下载工具使用标准库取得仓库**当前**校验清单和对应 ZIP，逐项校验后解压到 `package-new/fit-thesis-format/`。记录实际取得的版本；不要把不同版本的 ZIP、清单或规则混用。离线方式及固定 v9.1 的用法见[启动指南](fit-thesis-format/START_HERE.md)。
 
 在已经满足依赖的环境直接运行；缺依赖且宿主允许安装时，使用包内 `requirements.txt`：
 
@@ -49,6 +51,8 @@ python package-new/fit-thesis-format/scripts/prepare.py --source "论文.docx" -
 长论文同样必须审核全部项目；每项明确选择格式角色，或说明具体保留原因。分批的是审核工作，修改时仍处理完整 DOCX，每阶段都保留完整文件。覆盖完整不代表格式合格，全部标成“保留”也不能免除格式与逐页检查。操作见[长文完整覆盖与断点续审](fit-thesis-format/references/long-documents.md)。
 
 修改工具与映射规则见[通用执行协议](fit-thesis-format/references/agent-protocol.md)和[基础助手](fit-thesis-format/references/workflow.md)。工具参数 [agent-tools.json](fit-thesis-format/agent-tools.json) 是接入说明，打开它不会自动给聊天软件安装可调用工具。
+
+学校组件默认从 `assets/fit-economics-management-template-clean.docx` 取用；带历史批注的原件只作规则证据。需要专项核对时运行 `python package-new/fit-thesis-format/scripts/template_hygiene.py inspect "work-new/candidate.docx"`。静态审核也会纳入这项检查。不能通过接受或删除真实修订来清理批注，不能把最终论文当作内部审计报告加批注。
 
 候选文件生成后，重新检查，而不是复用修改前的审核结果：
 

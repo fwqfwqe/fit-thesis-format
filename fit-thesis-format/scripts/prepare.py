@@ -42,7 +42,10 @@ def prepare(source, work):
     required = ['SKILL.md', 'START_HERE.md', 'agent-tools.json', 'requirements.txt',
                 'references/style-spec.json', 'references/workflow.md',
                 'references/format-requirements.md', 'scripts/review_plan.py', 'scripts/narrative_citations.py',
-                'assets/fit-economics-management-template.docx']
+                'scripts/template_hygiene.py', 'references/template-hygiene.md',
+                'references/source-comments.json',
+                'assets/fit-economics-management-template.docx',
+                'assets/fit-economics-management-template-clean.docx']
     missing = [name for name in required if not (ROOT / name).is_file()]
     if missing:
         raise ValueError('Incomplete skill package: ' + ', '.join(missing))
@@ -64,6 +67,7 @@ def prepare(source, work):
     baseline = {'schema_version': 1, 'source': str(source), 'source_sha256': original_sha,
                 'backup': str(backup), 'backup_sha256': original_sha,
                 'school_template_sha256': template_sha,
+                'clean_template_sha256': sha(ROOT / 'assets' / 'fit-economics-management-template-clean.docx'),
                 'style_spec_sha256': sha(ROOT / 'references' / 'style-spec.json')}
     save(work / 'baseline.json', baseline)
     for scope, name in [('styles', 'styles-inventory.json'), ('layout', 'layout-inventory.json'),

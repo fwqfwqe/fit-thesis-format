@@ -1,4 +1,4 @@
-# 只收到 GitHub 链接时：从这里开始（v9）
+# 只收到 GitHub 链接时：从这里开始（v9.1）
 
 本文件写给接收仓库链接和用户论文的 AI / Agent。**先拿到完整资源并证明工具能执行，再修改原稿副本。** 不能只读网页说明，就根据提取文字新建一份 Word 并宣称完成格式修改。规则与脚本不绑定 AI 品牌，但网页浏览、文件执行和文档渲染是不同能力。
 
@@ -6,11 +6,11 @@
 
 项目仓库：https://github.com/fwqfwqe/fit-thesis-format
 
-- v9 完整 ZIP：https://github.com/fwqfwqe/fit-thesis-format/releases/download/v9/fit-thesis-format-v9.zip
+- v9.1 完整 ZIP：https://github.com/fwqfwqe/fit-thesis-format/releases/download/v9.1/fit-thesis-format-v9.1.zip
 - 当前版本校验清单：https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/package-manifest.json
 - 本启动指南 raw：https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/fit-thesis-format/START_HERE.md
 - 标准库下载校验工具：https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/main/bootstrap.py
-- 固定 v9 校验清单：https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/v9/package-manifest.json
+- 固定 v9.1 校验清单：https://raw.githubusercontent.com/fwqfwqe/fit-thesis-format/v9.1/package-manifest.json
 
 有网络下载和 Python 工具时，把下载校验工具保存为 `bootstrap.py` 后运行：
 
@@ -18,17 +18,17 @@
 python bootstrap.py --dest package-new
 ```
 
-它按仓库当前清单下载相应版本的包，核对 ZIP 和逐个文件的 SHA256，再解压到尚不存在的 `package-new/fit-thesis-format/`。记录实际版本；本指南对应 v9，不能混用不同版本的脚本和清单。
+它按仓库当前清单下载相应版本的包，核对 ZIP 和逐个文件的 SHA256，再解压到尚不存在的 `package-new/fit-thesis-format/`。记录实际版本；本指南对应 v9.1，不能混用不同版本的脚本和清单。
 
-需要固定 v9 或环境没有网络时，用宿主文件工具取得**同版本**的 ZIP 与校验清单，保存为 `fit-thesis-format-v9.zip` 和 `manifest-v9.json`，然后运行：
+需要固定 v9.1 或环境没有网络时，用宿主文件工具取得**同版本**的 ZIP 与校验清单，保存为 `fit-thesis-format-v9.1.zip` 和 `manifest-v9.1.json`，然后运行：
 
 ```text
-python bootstrap.py --manifest manifest-v9.json --archive fit-thesis-format-v9.zip --dest package-new
+python bootstrap.py --manifest manifest-v9.1.json --archive fit-thesis-format-v9.1.zip --dest package-new
 ```
 
 如果当前会话不能下载但能读附件，让用户上传完整 ZIP 和原始论文 DOCX。仅收到 `SKILL.md`、网页文本或几张截图时，模板、脚本和原文结构仍未取得；不要假装资源齐全。没有 Python 时可用宿主解压和 SHA256 工具做相同校验；无法验证的部分如实记录。
 
-解压后至少应实际读到 `SKILL.md`、`references/format-requirements.md`、`references/style-spec.json`、`references/workflow.md`、`references/long-documents.md`、`references/school-standard-mode.md`、`agent-tools.json`，并取得 `assets/fit-economics-management-template.docx` 和完整 `scripts/`。发现缺文件先修复获取步骤，不能靠记忆补规则。
+解压后至少应实际读到 `SKILL.md`、`references/format-requirements.md`、`references/style-spec.json`、`references/workflow.md`、`references/long-documents.md`、`references/school-standard-mode.md`、`references/template-hygiene.md`、`agent-tools.json`，并取得 `assets/fit-economics-management-template-clean.docx`、供查证的原模板及完整 `scripts/`（包括 `template_hygiene.py`）。复用组件使用净化模板，不能直接拿带历史批注的原模板生成论文。发现缺文件先修复获取步骤，不能靠记忆补规则。
 
 ## 2. 实测当前会话的能力
 
@@ -88,7 +88,9 @@ python package-new/fit-thesis-format/scripts/review_plan.py assemble --source "w
 
 ## 4. 在副本定点修改，保护原对象
 
-原稿有公式、自动标题编号、目录、交叉引用、书签、图片、图表、脚注尾注、批注或修订时，保留其原有结构。不能用 `paragraph.text`、全文抽取或空白文档重建来消掉这些对象。`academic_numbering.py` 用于示例和明确映射的结构辅助，不能当作任意已有论文的一键转换器。
+原稿有公式、自动标题编号、目录、交叉引用、书签、图片、图表、脚注尾注、真实作者或导师批注及修订时，保留其原有结构。不能用 `paragraph.text`、全文抽取或空白文档重建来消掉这些对象。`academic_numbering.py` 用于示例和明确映射的结构辅助，不能当作任意已有论文的一键转换器。
+
+需要复用学校封面、承诺书时，从 `assets/fit-economics-management-template-clean.docx` 获取组件，仍须核对示例信息。原模板及 `source-comments.json` 只保留作来源记录，不把历史教学批注迁入用户论文。按[模板批注与修订检查](references/template-hygiene.md)检查所有相关部件与登记；禁止为此顺带接受或删除真实修订，也不默认清空原稿真实批注。
 
 最低格式要点是：学校真实封面和诚信承诺书；四级标题“一、”“（一）”“1.”“（1）”；两级目录；真实奇偶页眉，正文奇数页是论文题目、偶数页是学校固定文字；可编辑数学结构与完整“公式（章-序号）”；独立公式无表格、文本框和边框；引用编号上标，作者年份基线；致谢最后，已有附录完整置于致谢前。**具体字号、间距、分节和转换限制必须读完整规则，不能只靠这段摘要执行。**
 
@@ -108,6 +110,8 @@ python package-new/fit-thesis-format/scripts/review_plan.py assemble --source "w
 python package-new/fit-thesis-format/scripts/delivery_check.py --source "论文.docx" --final "work-new/candidate.docx" --coverage "work-new/coverage.json" --chain "work-new/chain.json" --report "work-new/delivery-check.json"
 ```
 
+审核中已纳入批注检查，也可用 `python package-new/fit-thesis-format/scripts/template_hygiene.py inspect "work-new/candidate.docx"` 单独只读核对。批注为零仍须检查锚点、关系、内容类型登记等残留。修订按命名空间和完整节点名统计，`w:insideH`、`w:instrText` 不能算作 `w:ins`；清理模板批注不处理真实修订。
+
 读取输出里的实际问题和未完成项。`--coverage` 必须来自本次完整审核；凡候选 DOCX 与原稿字节不同，包括仅改格式，都必须提供可重放的 `--chain`。按[执行协议](references/agent-protocol.md)再提供 `--render-manifest`、`--page-manifest` 和 `--review`。不能用一个截图、抽样页面或旧版本 PDF 的检查结果代替当前最终稿全部页面。
 
 渲染方法见 `references/portable-rendering.md`。实际逐页检查封面、目录、标题编号、显示页码、奇偶页眉、公式上下标、图表和最后的致谢。渲染报告绑定 DOCX 与 PDF 哈希，页面清单绑定每张图；检查记录写明实际看过的页。**机器核对记录与哈希，不能证明 AI 真的看过页面，不能编造检查记录。**
@@ -116,4 +120,4 @@ python package-new/fit-thesis-format/scripts/delivery_check.py --source "论文.
 
 报告本次达到的状态：只读到规则、完成审核、完成候选修改但未验收，或完成已声明范围的验收。没有实际产出文件就不能说“已生成 Word”；保护检查失败就不能把候选稿交付成完成品；没有逐页检查就标明“未完成逐页视觉核验”。
 
-保留原文件，提供可编辑候选或通过验收的 Word 以及简短问题说明。不要把范文内容、内部日志或映射插入论文。用户可在 Word“开始→样式→修改”统一手调。
+保留原文件，提供可编辑候选或通过验收的 Word 以及简短问题说明。不要把范文内容、内部日志、映射或新增审计批注插入论文；审核意见在论文外报告。用户可在 Word“开始→样式→修改”统一手调。

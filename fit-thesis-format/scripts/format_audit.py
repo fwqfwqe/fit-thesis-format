@@ -17,6 +17,7 @@ import re
 import sys
 import zipfile
 from lxml import etree as E
+from template_hygiene import inspect_parts as inspect_review_parts
 
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 M = "http://schemas.openxmlformats.org/officeDocument/2006/math"
@@ -1267,9 +1268,38 @@ class Audit:
                              "确认是公式交叉引用后使用真实书签 REF 字段",
                              "先确认该处引用对象；按已有授权把公式引用迁移为 REF，保留显示文本并核验书签目标。", "requires_role_review")
 
+    def check_review_hygiene(self):
+        """Detect inherited template notes without deleting manuscript reviews."""
+        self.review_hygiene = report = inspect_review_parts(self.parts)
+        if report["template_comment_matches"]:
+            self.add("warning", "review.template_comment_match", {"part": "DOCX package"},
+                     report["template_comment_matches"], "成稿不携带学院范本的历史教学批注",
+                     "逐条核实来源；复用学校组件时使用净化模板。文字相同是来源线索，不能据此自动删除作者或导师的真实批注。",
+                     "requires_role_review")
+        orphans = {key: report[key] for key in ("orphan_anchor_ids", "missing_id_anchors",
+                   "dangling_comment_relationships", "dangling_comment_content_types") if report[key]}
+        if orphans:
+            self.add("error", "review.dangling_comment_metadata", {"part": "DOCX package"},
+                     orphans, "批注锚点、文件关系及内容类型声明均指向存在的部件和批注",
+                     "在副本中核对并修复孤立批注登记，记录实际变化；不得接受或删除修订，不得删除承载图片或域的整个 run。",
+                     "requires_role_review")
+        unknown_count = report["comment_count"] - len(report["template_comment_matches"])
+        if unknown_count:
+            self.add("info", "review.manuscript_comments_preserved", {"part": "DOCX package"},
+                     {"comment_count_without_template_text_match": unknown_count},
+                     "作者或导师批注受保护；审核说明与论文分开交付",
+                     "仅记录批注存在，不推定其作者或来源；没有明确的删除要求时保留。", "requires_role_review")
+        revisions = {key: count for key, count in report["revisions"].items() if count}
+        if revisions:
+            self.add("info", "review.tracked_revisions_preserved", {"part": "DOCX package"},
+                     revisions, "精确按 XML 名称清点修订，批注清理不改变修订",
+                     "保留原稿真实修订；w:insideH 和 w:instrText 不属于 w:ins。计数是 XML 节点数，不是人工编辑次数。",
+                     "requires_role_review")
+
     def run(self):
         self.infer_roles()
         self.check_coverage()
+        self.check_review_hygiene()
         self.check_structure(); self.check_paragraphs(); self.check_numbering()
         self.check_sections(); self.check_tables(); self.check_math(); self.check_citations()
         protection = self.settings.find(q("documentProtection"))
@@ -1294,6 +1324,7 @@ class Audit:
             "role_identification": {pid: {"role": role, "confidence": c, "basis": b} for pid, (role, c, b) in self.roles.items()},
             "coverage": self.coverage,
             "citation_review": self.citation_review,
+            "review_hygiene": self.review_hygiene,
             "sections": self.sections, "issues": self.issues,
             "style_layout_exceptions": {
                 "native_front_layout_paragraph_ids": [pid for pid,(role,_,_) in self.roles.items() if role.startswith("cover_") or role.startswith("commitment_")],
