@@ -2,3 +2,4 @@
 -r fit-thesis-format/requirements-render.txt
 # Synthetic PDF fixtures in the regression suite; not used by the formatter.
 reportlab==4.4.9
+pypdf==6.10.0
