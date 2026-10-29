@@ -45,6 +45,7 @@ python package-new/fit-thesis-format/scripts/thesis_job.py --request request.jso
 ## 开发和验收
 
 ```text
+python -m pip install -r requirements-dev.txt
 python -m unittest discover -s fit-thesis-format/tests -v
 python -m unittest discover -s tests -v
 ```
