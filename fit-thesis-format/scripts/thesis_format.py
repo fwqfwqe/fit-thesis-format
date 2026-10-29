@@ -65,10 +65,15 @@ def content_skeleton(el):
     # content, and bookmarks. Only known formatting property containers are
     # excluded; text nodes keep exact spaces while XML pretty-print whitespace
     # between container elements is immaterial.
-    if el.tag in FORMAT_CONTAINERS:return None
+    if el.tag in FORMAT_CONTAINERS:
+        # Visibility, emphasis and scientific superscripts are semantic content.
+        if el.tag == q('rPr'):
+            items=tuple(tree_signature(c) for c in el if E.QName(c).localname in {'vanish','webHidden'})
+            return ('semantic_rPr', items) if items else None
+        return None
     value=el.text if el.tag in TEXT_TAGS or (el.text and el.text.strip()) else None
     return (el.tag,tuple(sorted(el.attrib.items())),value,
-            tuple(content_skeleton(c) for c in el if isinstance(c.tag,str) and c.tag not in FORMAT_CONTAINERS))
+            tuple(v for c in el if isinstance(c.tag,str) for v in [content_skeleton(c)] if v is not None))
 def package(path):
     with zipfile.ZipFile(path) as z:
         if len(z.namelist()) != len(set(z.namelist())):
@@ -295,6 +300,10 @@ def make_styles(styles,mapping=None):
             tabs=child(pp,'tabs')
             for tab in sorted(sp['tabs'],key=lambda item:item['position_twips']):
                 child(tabs,'tab',val=tab['align'],pos=tab['position_twips'],leader=tab.get('leader','none'))
+        elif role in ('toc1','toc2'):
+            tabs=child(pp,'tabs')
+            pg=SPEC['page'];width=pg['width_twips']-pg['left_twips']-pg['right_twips']
+            child(tabs,'tab',val='right',pos=width,leader='dot')
         child(pp,'snapToGrid',val='0')
         child(pp,'spacing',before=round(sp['before_pt']*20),after=round(sp['after_pt']*20),line=round(sp['line_pt']*20),lineRule=sp['line_rule'])
         ind=child(pp,'ind',left=0,right=0,firstLine=0,firstLineChars=round(sp['indent_chars']*100))
@@ -323,6 +332,7 @@ def format_p(p,role,style_index,numbering=None,warnings=None,label=''):
     effective_numpr=resolved_numpr(p,style_index,numbering,warnings,label)
     pp=ensure(p,'pPr',True)
     clear=PARA_CLEAR if role not in ('cover_title','cover_info') else {'pStyle','outlineLvl'}
+    if role=='equation': clear=clear-{'jc'}  # Keep existing centered equations until explicit tab-layout migration.
     remove_names(pp,clear)
     st=E.Element(q('pStyle'));st.set(q('val'),style_id(role));pp.insert(0,st)
     if effective_numpr is not None:
@@ -407,7 +417,7 @@ def validate_map(mapping,source,ps,ts,parts):
     validate_paragraph_roles(mapping.get('paragraphs'),ps)
     for tid,opts in mapping.get('tables',{}).items():
         if tid not in ts:raise ValueError('Unknown table ID '+tid)
-        if opts.get('kind') not in ('three-line','complex'):raise ValueError('Table kind must be three-line or complex')
+        if opts.get('kind') not in ('three-line','complex','panel'):raise ValueError('Table kind must be three-line, complex or panel')
     for name,root in selected_stories(parts,mapping).items():
         validate_paragraph_roles(mapping['story_paragraphs'][name],indexed(root)[0],name)
     if not (mapping.get('paragraphs') or mapping.get('tables') or any(mapping.get('story_paragraphs',{}).values())):
@@ -451,7 +461,7 @@ def verify_paragraph_roles(ps,pmap,context='document'):
         pp=p.find(q('pPr'));st=pp.find(q('pStyle')) if pp is not None else None
         if st is None or st.get(q('val'))!=style_id(role):errors.append('Wrong style: '+label)
         if pp is not None and role not in ('cover_title','cover_info'):
-            blockers=[E.QName(e).localname for e in pp if E.QName(e).localname in PARA_CLEAR-{'pStyle'}]
+            blockers=[E.QName(e).localname for e in pp if E.QName(e).localname in PARA_CLEAR-({'pStyle','jc'} if role=='equation' else {'pStyle'})]
             if blockers:errors.append('Paragraph style blocked '+label+': '+','.join(blockers))
         for r in p.iter(q('r')):
             if any(a.tag.startswith('{'+M+'}') for a in r.iterancestors()):continue

@@ -1,5 +1,27 @@
 # 通用Agent执行协议
 
+## v10统一入口（完整任务优先使用）
+
+执行 `python scripts/thesis_job.py --request -`，stdin为UTF-8 JSON，stdout为JSON。`agent_cli.py`也路由相同动作，旧版单项参数保持兼容。以下路径均为实际绝对路径，不依赖特定智能体运行时。
+
+| 动作 | 输入 | 含义 |
+|---|---|---|
+| doctor | action，可选work_dir、smoke | 默认实际试验Word与WPS及字体/公式导出 |
+| run | action、source、work_dir；可选decisions、profile | 新目录启动，保留原稿并自动推进 |
+| next | action、work_dir | 返回当前语义或逐页检查任务 |
+| submit | action、work_dir、kind=decisions、decisions | 提交绑定原稿SHA256的格式角色/元数据决定 |
+| submit | action、work_dir、kind=review、engine、review | 提交实际看过的当前文件全部页面记录 |
+| resume | action、work_dir；可选reprobe | 从已验证状态继续；可重新探测真实环境 |
+| verify | action、work_dir | 重验阶段、最终分类及双引擎页面证据 |
+
+decisions可以是JSON对象或JSON文件路径，必须有source_sha256；段落、表格和文档区域映射沿用基础工具的结构，并支持metadata和经过来源绑定的narrative_map。以任务返回的inspection和实际输入为准，不能把旧映射直接用于另一版本。review可以是对象或文件路径，从任务返回的review_template填写，所有页保持原图像哈希并写实际观察。
+
+完整状态只有 `status=complete` 且 `delivery_ready=true` 才允许称已验收。`semantic_review_required`、`visual_review_required`由宿主智能体继续处理；`capability_required`、`execution_failed`、`correction_required`、`no_progress`均未完成。不得伪造检查记录。
+
+run/next/submit/resume构成跨宿主接口。宿主提供文件字节、进程调用、实际图片查看和附件交付即可；没有这些能力的网页聊天不能宣称执行成功。文档API适配必须先通过同样的对象保留和双引擎验收，接口描述不会自行注册或安装工具。
+
+以下为兼容保留的旧版单项接口。其“不做完整结构转换”等限制描述的是该单项动作，不是v10完整执行器；完整流程的正式格式阶段和字段刷新已有注册验证器，不再依靠任意差异白名单。
+
 本包由 Markdown 规则、学校范本、JSON 参数和 Python 脚本组成。规则不绑定模型品牌；实际能否完成任务取决于宿主文件、执行、文档和看图工具。只有 GitHub 链接时先读 [START_HERE.md](../START_HERE.md)，取得完整包并核对版本与哈希。打开本协议或工具 schema 不会自行安装执行工具。
 
 ## 先确认能做什么
@@ -195,7 +217,7 @@ python fit-thesis-format/scripts/delivery_check.py --source "论文.docx" --fina
 }
 ```
 
-只列实际执行的阶段，每阶段必须连接上一阶段的真实输出；检查器重新运行对应 verify，不相信旧报告里的 `ok`。当前链支持 `styles`、`citations`、`layout`，以及有真实来源绑定重放核验器的 `narrative_citations`。后者只接受上述作者显示及本稿已有条目的标号修正，不能用于任意正文改字。**自定义封面重建、章号改写、公式转写、附录移动、域缓存刷新等转换，当前没有通用重放核验器，不能用 `allow_changes`、任意白名单或一句人工确认绕过。** 此类变化须保留专门核验结果，并在当前交付检查中标为未验收，不能声称自动检查已通过。
+只列实际执行的阶段，每阶段连接真实输入输出；检查器重新运行verify，不相信旧报告的ok。以上兼容示例是styles、citations、layout、narrative_citations单项链；v10完整任务另以format和office_fields正式阶段验证学校结构处理与受控字段刷新。编号、封面、公式迁移和附录操作须由注册处理器产生并重放，任意临时脚本仍不能用allow_changes或人工确认绕过保护。新增功能必须配套验证器。
 
 JSON 入口使用同名 `coverage` 字段，路径仍按调用进程当前目录解析。例如：
 

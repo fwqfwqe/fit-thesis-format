@@ -50,7 +50,7 @@ class AgentCliTests(unittest.TestCase):
         return result
 
     def test_doctor_no_document_needed(self):
-        result = self.call({"action": "doctor"}, file_mode=True)
+        result = self.call({"action": "doctor", "legacy": True}, file_mode=True)
         self.assertTrue(result["ok"])
         self.assertIn("lxml", result["result"]["dependencies"])
         self.assertFalse(result["result"]["render_candidates"]["operationally_tested"])
@@ -80,7 +80,7 @@ class AgentCliTests(unittest.TestCase):
 
     def test_reject_unknown_action_fields_and_existing_report(self):
         self.assertEqual(self.call({"action": "arbitrary_shell"})["error"]["code"], "UNKNOWN_ACTION")
-        self.assertEqual(self.call({"action": "doctor", "shell": "anything"})["error"]["code"], "INVALID_REQUEST")
+        self.assertEqual(self.call({"action": "doctor", "legacy": True, "shell": "anything"})["error"]["code"], "INVALID_REQUEST")
         existing = self.work / "keep.json"
         existing.write_text("keep exactly", encoding="utf-8")
         result = self.call({"action": "inspect", "source": str(TEMPLATE), "report": str(existing)})

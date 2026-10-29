@@ -4,7 +4,7 @@
 
 ## 模板组件与个人信息
 
-[原范本](../assets/fit-economics-management-template.docx)仅保留作证据，SHA-256为`83dac94cb138ab7b46fb100d9ac05c6e1ab8c7dec986ebefd2e5ca22bf359eac`。复用组件必须从[净化模板](../assets/fit-economics-management-template-clean.docx)开始；它去除了历史批注、锚点和相关登记，未替换示例信息或完成当前论文排版。不要直接打开原范本后只删除范文正文，这会留下独立批注部件。
+[匿名分发范本](../assets/fit-economics-management-template.docx)保留学校格式证据，当前SHA-256为`e14b8f2146bf061d6164225cb7473bedc79c7bf1782b0c593336b435a9f2a9f7`。它保留学校批注正文，将批注作者匿名、去除账号及设备标识、示例姓名学号留空；原始来源哈希另记于[rules-v10.json](rules-v10.json)。复用组件必须从[净化模板](../assets/fit-economics-management-template-clean.docx)开始；净化模板另去除历史批注、锚点和相关登记，仍有范文题目、文字与示例日期，并未完成当前论文排版。不要只删除范文正文而留下独立批注部件。
 
 净化模板保留原文档组件顺序：document.xml的body直接子节点（0起算）0–8为学校封面，9–13为承诺书，14开始中文摘要；第13节点含前置无编号节的sectPr。克隆前两页时保留校徽drawing/关系/媒体、封面填写横线和合并单元格，并识别黄色高亮与个人示例值。完成后按[模板批注与修订检查](template-hygiene.md)查验全部 XML 区域及包关系；不把学校历史批注迁入论文，不给成稿新增审计批注。用户原稿真实批注和修订默认保留，不能为了清理模板接受或删除修订。
 

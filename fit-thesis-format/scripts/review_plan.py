@@ -205,7 +205,7 @@ def _decision(item, decision):
         _require(item['format_supported'], 'Protected or unsupported story item must be preserved with a reason: ' + label)
         role = decision.get('role')
         if item['kind'] in ('table', 'story_table'):
-            _require(role in ('three-line', 'complex'), 'Table role must be three-line or complex: ' + label)
+            _require(role in ('three-line', 'complex', 'panel'), 'Table role must be three-line, complex or panel: ' + label)
             rows = decision.get('header_rows', 1)
             _require(type(rows) is int and 0 <= rows <= item['rows'], 'Invalid table header_rows: ' + label)
         else:

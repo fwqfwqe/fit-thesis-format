@@ -19,6 +19,7 @@ import zipfile
 
 from docx import Document
 from PIL import Image, UnidentifiedImageError
+import pypdfium2 as pdfium
 
 REPO = Path(__file__).resolve().parents[1]
 PACKAGE = REPO / 'fit-thesis-format'
@@ -88,16 +89,24 @@ class PortableEntryTests(unittest.TestCase):
         image_items, review_items = [], []
         for number in range(1, count + 1):
             image = self.work / ('page-%d.png' % number)
-            with Image.new('RGB', (100, 100), 'white') as picture:
+            # Use actual PDF rasterization so matching fixture hashes cannot
+            # substitute an unrelated image for a page in the evidence.
+            with pdfium.PdfDocument(str(pdf)) as document:
+                page = document[number - 1]
+                bitmap = page.render(scale=1)
+                picture = bitmap.to_pil()
+                width, height = picture.size
                 picture.save(image, format='PNG')
-            image_items.append({'page': number, 'file': image.name, 'sha256': sha(image), 'width': 100, 'height': 100})
+                picture.close(); bitmap.close(); page.close()
+            image_items.append({'page': number, 'file': image.name, 'sha256': sha(image), 'width': width, 'height': height})
             review_items.append({'page': number, 'image_sha256': sha(image), 'status': 'pass',
                                  'checks': {check: 'pass' for check in DELIVERY.PAGE_CHECKS},
                                  'notes': 'Synthetic evidence fixture; no real thesis acceptance is claimed.'})
         save_json(render, {'engine': 'synthetic-test-engine', 'engine_version': 'test',
                           'source_sha256_before': final_hash, 'source_unchanged': True,
                           'pdf': pdf.name, 'pdf_sha256': pdf_hash, 'pages': count})
-        save_json(pages, {'input_sha256': pdf_hash, 'page_count': count, 'pages': image_items})
+        save_json(pages, {'engine': 'pypdfium2', 'dpi': 72,
+                          'input_sha256': pdf_hash, 'page_count': count, 'pages': image_items})
         save_json(review, {'final_docx_sha256': final_hash, 'pdf_sha256': pdf_hash,
                           'reviewer': 'synthetic-test', 'pages': review_items})
         return render, pages, review
@@ -258,7 +267,12 @@ class PortableEntryTests(unittest.TestCase):
         field.set(F.q('instr'),' TOC \\o "1-3" \\h ')
         run=F.E.SubElement(field,F.q('r')); F.E.SubElement(run,F.q('t')).text='错误的三级目录缓存'
         document.save(paper)
-        result=DELIVERY.check(paper,paper)
+        parts=F.package(paper); paragraphs,_=F.indexed(F.parse(parts['word/document.xml']))
+        mapping=self.work/'final-map.json'
+        save_json(mapping, {'source_sha256': sha(paper), 'paragraphs': {
+            pid: {'role': 'toc1' if p.find('.//' + F.q('fldSimple')) is not None else 'body',
+                  'expected_text': F.ptext(p)} for pid,p in paragraphs.items()}, 'tables': {}})
+        result=DELIVERY.check(paper,paper,final_mapping=mapping)
         self.assertFalse(result['delivery_ready'])
         audit=result['details']['fresh_audit']
         self.assertIn('toc.depth',{item['category'] for item in audit['blocking_findings']})

@@ -1,41 +1,31 @@
 {
   "skill": "fit-thesis-format",
-  "version": "v9.1",
+  "version": "v10.0.0",
   "files": [
     {
-      "path": "fit-thesis-format/SKILL.md",
-      "size": 11036,
-      "sha256": "9d0700bee6fcabb7222e42147c0ef6aea829390448bd6a91244af5e239f18d98"
-    },
-    {
-      "path": "fit-thesis-format/START_HERE.md",
-      "size": 12128,
-      "sha256": "00f00ea18f6a34bde1b8331ce76f484f9f6ef50f80e7499f035a4e75e3f3f8f4"
-    },
-    {
       "path": "fit-thesis-format/agent-tools.json",
-      "size": 13036,
-      "sha256": "5029a5d0df75df8c0beef357269ba37dd3e4d016da739db8ca29bb28c8a593d7"
+      "size": 16758,
+      "sha256": "6e8b60f294bdc31319040d2b343b30fbc19ffe6c6c2c8898ad68c6ded11a6bca"
     },
     {
       "path": "fit-thesis-format/agents/openai.yaml",
-      "size": 624,
-      "sha256": "38ec3dca7557dbcf5645e5629a78b2ef0df3a99d8acf5d487f9408b741c8257f"
+      "size": 633,
+      "sha256": "73aa4593e98b9393581c3b2af8ea7bfaacb3d05834590f7587d3aafd1fbe3a80"
     },
     {
       "path": "fit-thesis-format/assets/fit-economics-management-template-clean.docx",
-      "size": 166660,
-      "sha256": "d0fa193e31c6a48d949a55a9329ac8eb70e266138cc24bb9d871b432cbae3e1c"
+      "size": 165291,
+      "sha256": "3e176c42c7408d6e92eea6d1035ccee78f6ac8f7ff9ad15d76c563fe146eee21"
     },
     {
       "path": "fit-thesis-format/assets/fit-economics-management-template.docx",
-      "size": 218309,
-      "sha256": "83dac94cb138ab7b46fb100d9ac05c6e1ab8c7dec986ebefd2e5ca22bf359eac"
+      "size": 179422,
+      "sha256": "e14b8f2146bf061d6164225cb7473bedc79c7bf1782b0c593336b435a9f2a9f7"
     },
     {
       "path": "fit-thesis-format/references/agent-protocol.md",
-      "size": 16306,
-      "sha256": "65e319addf9c4cc75420961715ee161608461b8046ed1b7f9e2c6b15143d49d6"
+      "size": 18427,
+      "sha256": "caad044615b60917fb23ca211eba4c009e31d4394e689a46cfb725151993e2dd"
     },
     {
       "path": "fit-thesis-format/references/audit-mode.md",
@@ -49,13 +39,18 @@
     },
     {
       "path": "fit-thesis-format/references/examples-format-evidence.md",
-      "size": 9141,
-      "sha256": "867fd9cfbddc445fbf74ccfee1de697d4c3dfb6c7c2ea7257cfd141be1809bb1"
+      "size": 8881,
+      "sha256": "acb484b9d3c3c270ea0058a392ad2495d45705a94826d1dd5926dd9a0bcd6e15"
     },
     {
       "path": "fit-thesis-format/references/format-requirements.md",
-      "size": 16604,
-      "sha256": "1549ece8074ac1de2c3273fab7525d5c3139446970440d7ae0b3b8a03a6f5142"
+      "size": 17752,
+      "sha256": "ddeca56f989bbe4693c5339fbddfac45a4c6bc3869c1d374ffb3e4e47944eed1"
+    },
+    {
+      "path": "fit-thesis-format/references/layout-repairs.md",
+      "size": 5511,
+      "sha256": "7f58ef2f21f2a11b71532b609151c5eac2de1cc7278bfcefeced3e1d76026a3b"
     },
     {
       "path": "fit-thesis-format/references/long-documents.md",
@@ -69,33 +64,43 @@
     },
     {
       "path": "fit-thesis-format/references/portable-rendering.md",
-      "size": 9365,
-      "sha256": "932928d1883bdbc8041603e7fa27815bab029e1da4461f3b51e1a0dabd9a43de"
+      "size": 10804,
+      "sha256": "f19f1d0836cf8661f3d971ae77de6830aafc4548c2e51ed506e8e7d148c210d2"
+    },
+    {
+      "path": "fit-thesis-format/references/rules-v10.json",
+      "size": 7331,
+      "sha256": "d7136f7d440efe062fe17d72992447fb4cdfad825cb972cdb923b7ef7c047b6f"
     },
     {
       "path": "fit-thesis-format/references/school-standard-mode.md",
-      "size": 7814,
-      "sha256": "2713b996e323efdd56523c15cbaf67969791dfd281135c255adf843dec41dbca"
+      "size": 8014,
+      "sha256": "71ffa40f27b62988c3f4a47cd6cad1e9b3482337d99aaeb7a8c4ee5788f7a05b"
     },
     {
       "path": "fit-thesis-format/references/source-comments.json",
-      "size": 24711,
-      "sha256": "066a2ebce9445ec2d256e771c972b63f8747418f674c9033d8a2df62d1ad9d6c"
+      "size": 24707,
+      "sha256": "cbd7aac1785b666dd9c0c56657e460388152b3ee764119524c1f6fdb26b2025c"
     },
     {
       "path": "fit-thesis-format/references/style-spec.json",
-      "size": 6142,
-      "sha256": "165bece0f83d95eabd18333f3883295f084aa3edbd7a4884331dcf7ebf670c87"
+      "size": 6511,
+      "sha256": "b03afa6deddf146cad6056565b4a000a6a2d58137a85a0f708b4ea47d2afcdd5"
     },
     {
       "path": "fit-thesis-format/references/template-hygiene.md",
-      "size": 3472,
-      "sha256": "5c2299182f811b4c674972a0d3681c2701b5a051ddbf9ba5283c2d04d5b2cbfc"
+      "size": 3811,
+      "sha256": "b40a03c452d58866be2a2849660b69c8492afe685d9ea46aa0020c299d6ab04b"
+    },
+    {
+      "path": "fit-thesis-format/references/v10-execution.md",
+      "size": 3672,
+      "sha256": "9ba7b968feecb07d730fbd989c9f022d5706cdf94c931720d053eac3893abbad"
     },
     {
       "path": "fit-thesis-format/references/workflow.md",
-      "size": 17910,
-      "sha256": "cb07daf3c35a611ab6d238f180fc72735d9799b6766bea99ad84b64570fe4b4f"
+      "size": 18270,
+      "sha256": "26fe1e8ae9762fb133b028529e7c079728a8663c6095042c6cce6b1c34ce7fd1"
     },
     {
       "path": "fit-thesis-format/requirements-render.txt",
@@ -114,8 +119,8 @@
     },
     {
       "path": "fit-thesis-format/scripts/agent_cli.py",
-      "size": 25507,
-      "sha256": "0126e51d6c7d1c86df434e55b9485d1e8308f2835d73c8e4a580d594149f70b2"
+      "size": 26137,
+      "sha256": "cab470fc6b01c2be2764c07cd7c2e27fac8e456283bbe86105a37522ed72e2bf"
     },
     {
       "path": "fit-thesis-format/scripts/citation_style.py",
@@ -124,23 +129,53 @@
     },
     {
       "path": "fit-thesis-format/scripts/delivery_check.py",
-      "size": 13960,
-      "sha256": "0d92e606b32e6c5bafa11721fa828b865607c9c65009602f64b9b886b5f8a74c"
+      "size": 23935,
+      "sha256": "91e28c58f14b94f61e98ab1f5499ccdfa83e882eab7f82163587a0dbbd1b692a"
+    },
+    {
+      "path": "fit-thesis-format/scripts/field_cache_merge.py",
+      "size": 13724,
+      "sha256": "1ba6eabdbc9cb144f9aa32cc0634eea1fddd9607b7e8348b76576ff859eaa930"
     },
     {
       "path": "fit-thesis-format/scripts/format_audit.py",
-      "size": 109852,
-      "sha256": "9b612319f941a1aefa9117d9fb0f1551e9e0700e780ab623e70aff7bd2f03cc2"
+      "size": 123603,
+      "sha256": "1c5baf8f44a606f60af58a2b242085dbaf2c63a96bb5a550dc7b2be0f8030657"
+    },
+    {
+      "path": "fit-thesis-format/scripts/format_engine.py",
+      "size": 82739,
+      "sha256": "50170814616f269512a8586f70edc0b68c9d494e216ab51993fbde223ca66669"
+    },
+    {
+      "path": "fit-thesis-format/scripts/integrity.py",
+      "size": 25422,
+      "sha256": "fa8b9460994263841c85d713161f132461beb663730a393a651dee7cf00979d2"
+    },
+    {
+      "path": "fit-thesis-format/scripts/math_transcription.py",
+      "size": 5247,
+      "sha256": "453e51da3a84268f802571d9a1ee3e6b1f73094b9dfc321763ed590b9e3b395a"
     },
     {
       "path": "fit-thesis-format/scripts/narrative_citations.py",
-      "size": 35667,
-      "sha256": "c50a87a21ea38c5e65260ac1cc60987b0ee6ef9cf0dc6122b55eeff43c223ecb"
+      "size": 37212,
+      "sha256": "689cd817cf4428591f5fa3fc1c77e82ae2adaaae766c3771346d82401ad52017"
+    },
+    {
+      "path": "fit-thesis-format/scripts/office_probe.py",
+      "size": 29188,
+      "sha256": "4456c5b826dae76af45a87d1472c5d5da822eea3cf9fe23c621098563baa8638"
+    },
+    {
+      "path": "fit-thesis-format/scripts/office_render.ps1",
+      "size": 14912,
+      "sha256": "91d0ee350c09d17afe044bbab4d0e86b662f8c480b1e51f2352d7d223cc0825f"
     },
     {
       "path": "fit-thesis-format/scripts/prepare.py",
-      "size": 9695,
-      "sha256": "575b1b5cd201342d4bf2e4127066b8428b38be7538500524bc671fc5f82b84f8"
+      "size": 9861,
+      "sha256": "9f1e7375e83441e26f59833583b7da8343164244f578c872759e45c80624c5be"
     },
     {
       "path": "fit-thesis-format/scripts/render_pdf.py",
@@ -149,23 +184,33 @@
     },
     {
       "path": "fit-thesis-format/scripts/review_plan.py",
-      "size": 23391,
-      "sha256": "adf2774f5062543c617d7bd183fc3d39d0f43be62792d2e373774110e9778d72"
+      "size": 23808,
+      "sha256": "cbe694126faae2d8ed3404ee4a8881ec001dd57fa7abe01b97a73e3b57a04293"
+    },
+    {
+      "path": "fit-thesis-format/scripts/rule_coverage.py",
+      "size": 12541,
+      "sha256": "f7764ca712314e2121a4cca756021ea859a0083855b4e2c09c234f0c4711e2e6"
     },
     {
       "path": "fit-thesis-format/scripts/template_hygiene.py",
-      "size": 15129,
-      "sha256": "e94360b16aed6308e9177ab450c84b0eeb99cd50d25593db7aa22d743c86b7c0"
+      "size": 15471,
+      "sha256": "9301db8923ca8b350d25f66509ea103d59c43455ca73f2a28fd139b3db3a26f0"
     },
     {
       "path": "fit-thesis-format/scripts/thesis_format.py",
-      "size": 38445,
-      "sha256": "396a8faea4f43b34054d0e489b590120392c8fe1d647be109b62ddb423a77038"
+      "size": 39713,
+      "sha256": "362fcd72dbb852ecd3c04615bab0e69e2b65a6f20fbe9344c04cc4c98b2a852e"
+    },
+    {
+      "path": "fit-thesis-format/scripts/thesis_job.py",
+      "size": 31855,
+      "sha256": "b3041e8ce60bcbce0022a19db389c413568822f45deb4d351cababf61136150e"
     },
     {
       "path": "fit-thesis-format/scripts/thesis_layout.py",
-      "size": 17991,
-      "sha256": "e92b08cdccaa436ac61d7aac13b9cff4057e799ef26eb55dde9a58639d31529c"
+      "size": 19536,
+      "sha256": "e83cc04cbad6fa5fb97cc3d35abbd91dc041e7ad8d6a4acc4192416cf52e4bfa"
     },
     {
       "path": "fit-thesis-format/scripts/validate_academic_controls.py",
@@ -176,11 +221,102 @@
       "path": "fit-thesis-format/scripts/word_render.ps1",
       "size": 8236,
       "sha256": "4678e74b13e991d6bb5e72ffc176fc8edf237eaa3f726fe15fdb134f631f799c"
+    },
+    {
+      "path": "fit-thesis-format/SKILL.md",
+      "size": 6207,
+      "sha256": "d18b6d5d3ebdda50d74a456da19be573d2482df028cdb42c2cf2c4d04cebba88"
+    },
+    {
+      "path": "fit-thesis-format/START_HERE.md",
+      "size": 1884,
+      "sha256": "072a95544c0d89b1b1f3cca3ba8f7f25ceef45077f4667d616860d7b6018b07d"
+    },
+    {
+      "path": "fit-thesis-format/tests/test_continuation_audit.py",
+      "size": 5699,
+      "sha256": "987b634c20dea3347229c8e0da95e7856fb926e666f290bd319ae463610571f5"
+    },
+    {
+      "path": "fit-thesis-format/tests/test_editable_figure.py",
+      "size": 1990,
+      "sha256": "4ef534c4b4a68af25a578c944c725eff8905fd5b0810623467af5dcfe854fe4e"
+    },
+    {
+      "path": "fit-thesis-format/tests/test_field_cache_merge.py",
+      "size": 8707,
+      "sha256": "5985618eea52440641bc017ecdcd046b9de65562cb8b43789bf31faa9d3763e7"
+    },
+    {
+      "path": "fit-thesis-format/tests/test_format_engine.py",
+      "size": 19361,
+      "sha256": "9e30365be19303c0703f094635a8ec4661e21e04b9b7d6cede8035f35d9cab2a"
+    },
+    {
+      "path": "fit-thesis-format/tests/test_front_layout.py",
+      "size": 4421,
+      "sha256": "56bee7894e5c340809c6a7e47529557ae8689ce22f6769381edc5ea3d063a588"
+    },
+    {
+      "path": "fit-thesis-format/tests/test_heading_restart.py",
+      "size": 7263,
+      "sha256": "552b02b0a47f4190f6efc8ad4a59ee51cefe593b9a73a3a5043febb880724f55"
+    },
+    {
+      "path": "fit-thesis-format/tests/test_heading_restart_audit.py",
+      "size": 5378,
+      "sha256": "5bef048ea129bd36bb19239949ed2a1372f253abc5c376f5023092aa0e57f311"
+    },
+    {
+      "path": "fit-thesis-format/tests/test_integrity.py",
+      "size": 5731,
+      "sha256": "96c8a1fbb9f7e1dec17dd6e911bf69789d47cdc0f3764722e8b9e89f00e6c6ff"
+    },
+    {
+      "path": "fit-thesis-format/tests/test_math_transcription.py",
+      "size": 1795,
+      "sha256": "9583fbae21682906d37293dfc2601cace996cfe876eb20b8e37b92e9884a09b0"
+    },
+    {
+      "path": "fit-thesis-format/tests/test_narrative_marker_validation.py",
+      "size": 1414,
+      "sha256": "0e947ea71e54afa101a95da292322d4570bbc53d892be4ea8283ad4f1494b281"
+    },
+    {
+      "path": "fit-thesis-format/tests/test_office_probe.py",
+      "size": 8709,
+      "sha256": "2e73608877471a76f5c67b0aafcfb850fdfd7a4a474eb7aaad30fca8af2288cf"
+    },
+    {
+      "path": "fit-thesis-format/tests/test_release_assets.py",
+      "size": 4215,
+      "sha256": "73f7b6a0b06e82d9d40218d1d57f2f78da9d2dee27bbd39202fd372cc2394230"
+    },
+    {
+      "path": "fit-thesis-format/tests/test_rule_coverage.py",
+      "size": 4672,
+      "sha256": "784e6193f5432b6f58a21f9984db1f3ed30d442b09788de99d33196a3582d2f0"
+    },
+    {
+      "path": "fit-thesis-format/tests/test_tail_and_reference.py",
+      "size": 6155,
+      "sha256": "439922948c17b4e03f84dc23427e0eb8337c18be589403f03a36c82a805e3de3"
+    },
+    {
+      "path": "fit-thesis-format/tests/test_thesis_job.py",
+      "size": 20328,
+      "sha256": "21c4936c56f67dfb618d7073337e75dc0dd1efabe0fb5e8fe12670c579f749f7"
+    },
+    {
+      "path": "fit-thesis-format/package-manifest.json",
+      "size": 9122,
+      "sha256": "b1b110f185a9745d524629193376f450f4d7746c5d341a295e20426c96360d75"
     }
   ],
   "archive": {
-    "path": "dist/fit-thesis-format-v9.1.zip",
-    "size": 544821,
-    "sha256": "f44f757479c20e16c43a791bf2ead26e5f16921a900c5afe5baaa3c62bde3d8f"
-  }
+    "path": "dist/fit-thesis-format-v10.zip",
+    "size": 633931,
+    "sha256": "04fbeb661127531b2c50df777e0e8e97ccda97582f325f981292c6a1d2841eaf"
+  },
+  "file_count": 62
 }

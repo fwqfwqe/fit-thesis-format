@@ -1,0 +1,233 @@
+{
+  "schema_version": 1,
+  "profile_id": "fit-economics-management-20261029",
+  "version": "10.0.0",
+  "scope": {
+    "school": "福州理工学院",
+    "college": "经济管理学院",
+    "cohort": null
+  },
+  "numeric_source": "style-spec.json",
+  "precedence": [
+    "current_user_request",
+    "confirmed_user_school_rules",
+    "template_comments",
+    "template_styles",
+    "implementation_defaults"
+  ],
+  "sources": {
+    "template": {
+      "kind": "provided_school_template_anonymized_distribution",
+      "path": "../assets/fit-economics-management-template.docx",
+      "sha256": "e14b8f2146bf061d6164225cb7473bedc79c7bf1782b0c593336b435a9f2a9f7",
+      "comments": "source-comments.json",
+      "upstream_sha256": "83dac94cb138ab7b46fb100d9ac05c6e1ab8c7dec986ebefd2e5ca22bf359eac",
+      "distribution_changes": "Comment author/account and device metadata anonymized; example name/student id blanked; school comment text and media unchanged."
+    },
+    "confirmed": {
+      "kind": "user_confirmed_school_rules",
+      "date": "2026-10-29",
+      "locator": "format-requirements.md",
+      "official_new_document_obtained": false
+    },
+    "engineering": {
+      "kind": "implementation_choice",
+      "locator": "v10-execution.md"
+    }
+  },
+  "defaults": {
+    "mode": "school_standard",
+    "preserve_research_content": true,
+    "render_engines": [
+      "word",
+      "wps"
+    ],
+    "require_same_final_docx": true,
+    "require_all_pages_reviewed": true,
+    "require_editable_objects": true,
+    "no_progress_limit": 2,
+    "missing_personal_metadata": "retain_blank_and_report",
+    "ambiguous_math": "retain_and_request_evidence",
+    "external_upload": false
+  },
+  "rules": [
+    {
+      "id": "page.geometry",
+      "source": "template",
+      "locator": "format-requirements.md#页面与顺序",
+      "expected_ref": "style-spec.json#/page",
+      "check": "all_section_geometry",
+      "fix": "section_geometry"
+    },
+    {
+      "id": "front.components",
+      "source": "template",
+      "locator": "format-requirements.md#封面及承诺书",
+      "check": "cover_commitment_and_source_metadata",
+      "fix": "verified_template_components"
+    },
+    {
+      "id": "text.styles",
+      "source": "template",
+      "expected_ref": "style-spec.json#/roles",
+      "check": "effective_style_properties_and_inheritance",
+      "fix": "semantic_styles"
+    },
+    {
+      "id": "headings.numbering",
+      "source": "template",
+      "expected": [
+        "一、",
+        "（一）",
+        "1.",
+        "（1）"
+      ],
+      "check": "heading_roles_and_displayed_numbers",
+      "fix": "native_numbering"
+    },
+    {
+      "id": "toc.two_levels",
+      "source": "template",
+      "expected": {
+        "levels": 2,
+        "include": [
+          "摘要",
+          "Abstract",
+          "正文",
+          "参考文献",
+          "附录",
+          "致谢"
+        ]
+      },
+      "check": "toc_targets_and_actual_pages_both_engines",
+      "fix": "toc_and_safe_field_refresh"
+    },
+    {
+      "id": "section.pagination",
+      "source": "template",
+      "expected": {
+        "cover_commitment": "none",
+        "abstract_toc": "upperRoman_continuous",
+        "body_to_end": "decimal_start_1_continuous"
+      },
+      "check": "section_fields_and_rendered_page_numbers",
+      "fix": "section_numbering"
+    },
+    {
+      "id": "section.headers",
+      "source": "template",
+      "expected": {
+        "body_odd": "source_thesis_title",
+        "body_even": "福州理工学院本科生毕业论文（设计）",
+        "parity": "displayed_page_number"
+      },
+      "check": "effective_all_section_headers_and_rendered_parity",
+      "fix": "owned_reusable_header_footer_parts"
+    },
+    {
+      "id": "table.structure",
+      "source": "template",
+      "check": "classified_tables_width_borders_headers_row_groups",
+      "fix": "typed_table_layout"
+    },
+    {
+      "id": "table.panel",
+      "source": "engineering",
+      "scope": "existing_or_user_requested_panel_table",
+      "expected": "preserve_panel_dividers_coefficient_se_pairs_and_notes",
+      "check": "panel_structure_and_rendered_breaks",
+      "fix": "panel_row_groups"
+    },
+    {
+      "id": "caption.order",
+      "source": "template",
+      "expected": "table_above_figure_below_independent_chapter_sequences",
+      "check": "caption_names_numbers_and_references",
+      "fix": "source_bound_caption_map"
+    },
+    {
+      "id": "math.layout",
+      "source": "confirmed",
+      "expected": {
+        "container": "ordinary_paragraph",
+        "paragraph_alignment": "left",
+        "expression_tab": "center_of_text_width",
+        "number_tab": "right_text_edge",
+        "number_pattern": "公式（章-序号）",
+        "line_height": "at_least_spec",
+        "border": "none"
+      },
+      "check": "math_structure_tabs_labels_and_rendered_bounds",
+      "fix": "preserve_objects_move_container"
+    },
+    {
+      "id": "math.editability",
+      "source": "template",
+      "expected": "OMML_or_working_editable_equation_object",
+      "check": "native_object_editability_and_expression_identity",
+      "fix": "verified_transcription_only"
+    },
+    {
+      "id": "citations.display",
+      "source": "confirmed",
+      "expected": {
+        "numeric_marker": "complete_brackets_superscript",
+        "author_year": "baseline",
+        "two_authors": "和",
+        "three_or_more": "first_author_等_or_et_al"
+      },
+      "check": "source_bound_citation_map",
+      "fix": "verified_existing_reference_display"
+    },
+    {
+      "id": "references.layout",
+      "source": "template",
+      "expected_ref": "style-spec.json#/roles/reference",
+      "check": "bibliography_format_and_preserved_entries",
+      "fix": "reference_styles"
+    },
+    {
+      "id": "backmatter.order",
+      "source": "confirmed",
+      "expected": [
+        "结论与展望",
+        "参考文献",
+        "已有附录",
+        "致谢"
+      ],
+      "check": "complete_blocks_and_last_section",
+      "fix": "move_whole_appendix_blocks"
+    },
+    {
+      "id": "whitespace.layout",
+      "source": "engineering",
+      "expected": "no_redundant_layout_whitespace_preserve_semantic_spaces_and_anchors",
+      "check": "recorded_whitespace_edits_and_rendered_spacing",
+      "fix": "safe_whitespace_cleanup"
+    },
+    {
+      "id": "integrity.objects",
+      "source": "engineering",
+      "expected": "no_unrecorded_content_visibility_or_object_changes",
+      "check": "deterministic_replay_and_independent_integrity",
+      "fix": "restore_protected_object_and_reapply_layout"
+    },
+    {
+      "id": "delivery.dual_engine",
+      "source": "engineering",
+      "scope": "user_required_default",
+      "expected": "same_docx_word_and_wps_all_pages_pass",
+      "check": "hash_bound_dual_engine_evidence",
+      "fix": "repair_then_rerender_both"
+    }
+  ],
+  "content_advice_only": [
+    "字数",
+    "文献数量及年代",
+    "研究论述",
+    "统计结论",
+    "缺失个人信息",
+    "签名与日期",
+    "公式数学含义"
+  ]
+}

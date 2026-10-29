@@ -229,11 +229,11 @@ def execute_workflow(request, request_file=None):
     """
     action=request['action']
     required={'action','source','work_dir'} if action=='prepare' else {'action','source','output','report'}
-    optional=set() if action=='prepare' else {'chain','render_manifest','page_manifest','review','coverage'}
+    optional=set() if action=='prepare' else {'chain','render_manifest','page_manifest','review','coverage','final_mapping','dual_render'}
     extra=set(request)-required-optional; missing=required-set(request)
     if extra or missing:
         raise RequestError('INVALID_REQUEST','Unexpected fields: '+', '.join(sorted(extra))+'; missing fields: '+', '.join(sorted(missing)))
-    reads={key:file_path(request[key],key,True) for key in ('source','output','chain','render_manifest','page_manifest','review','coverage') if key in request}
+    reads={key:file_path(request[key],key,True) for key in ('source','output','chain','render_manifest','page_manifest','review','coverage','final_mapping','dual_render') if key in request}
     for key in ('source','output'):
         if key in reads and reads[key].suffix.lower()!='.docx':raise RequestError('UNSUPPORTED_INPUT',key+' must be a DOCX file')
     write_key='work_dir' if action=='prepare' else 'report'
@@ -308,6 +308,13 @@ def execute_workflow(request, request_file=None):
 
 
 def execute(request, request_file=None):
+    if isinstance(request, dict) and (request.get('action') in ('run', 'next', 'submit', 'resume')
+                                    or request.get('action') == 'verify' and 'work_dir' in request
+                                    or request.get('action') == 'doctor' and request.get('legacy') is not True):
+        import thesis_job
+        return thesis_job.execute(request)
+    if isinstance(request, dict) and request.get('action') == 'doctor' and request.get('legacy') is True:
+        request = {key: value for key, value in request.items() if key != 'legacy'}
     if isinstance(request,dict) and request.get('action') in ('prepare','delivery_check'):
         return execute_workflow(request,request_file)
     action, scope, reads, writes = plan(request, request_file)

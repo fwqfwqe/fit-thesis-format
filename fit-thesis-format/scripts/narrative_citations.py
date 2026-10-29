@@ -447,7 +447,9 @@ def _guess_reference(text):
             end += 1
     else:
         body, suffix = area, None
-    names = [n.strip() for n in re.split(r'\s*(?:[,，、;；&]|\band\b|和|与)\s*', body) if n.strip()]
+    # Chinese organization names may contain 和 (工业和信息化部).
+    organization=bool(re.search(r'(?:部|局|委员会|研究院|大学|协会|银行|公司|联合会)$',body.strip())) and not re.search(r'[,，、;；&]',body)
+    names = [body.strip()] if organization else [n.strip() for n in re.split(r'\s*(?:[,，、;；&]|\band\b|和|与)\s*', body) if n.strip()]
     authors = []
     for name in names:
         if HAN_NAME.fullmatch(name):
@@ -510,7 +512,10 @@ def inspect_parts(parts):
             match = hit['match']
             issues = []
             # Limit hints to this sentence. Claims are still explicitly reviewed.
-            sentence_end = next((i for i in range(end, len(text)) if text[i] in END_PUNCTUATION), len(text))
+            sentence_end = next((i for i in range(end, len(text)) if text[i] in END_PUNCTUATION and not (text[i]=='.' and i>0 and i+1<len(text) and text[i-1].isdigit() and text[i+1].isdigit())), len(text))
+            # A later author-year starts another cited claim even when joined by a comma.
+            next_author=min([a for (a,b) in found if a>=end]+[sentence_end])
+            if text[end:next_author].strip() not in ('和','与','、','及','and'):sentence_end=min(sentence_end,next_author)
             numeric = list(NUMERIC_MARKER.finditer(text[end:sentence_end]))
             post_punctuation = re.match('[' + re.escape(END_PUNCTUATION) + r'\s]+(' + NUMERIC_MARKER.pattern + ')', text[sentence_end:])
             numeric_tokens = [m.group() for m in numeric]
@@ -518,8 +523,10 @@ def inspect_parts(parts):
                 numeric_tokens.append(post_punctuation.group(1))
             if not numeric_tokens:
                 issues.append('missing_numeric_marker')
-            elif post_punctuation or len(numeric_tokens) != 1 or numeric_tokens[0] not in {
-                    '[' + str(reference['reference_number']) + ']' for reference in refs}:
+            elif (post_punctuation or len(numeric_tokens) != 1
+                  or not re.fullmatch(r'\[\d+(?:,\d+)*\]', numeric_tokens[0])
+                  or not {int(n) for n in re.findall(r'\d+',numeric_tokens[0])}.issubset({r['reference_number'] for r in references})
+                  or not any(reference['reference_number'] in {int(n) for n in re.findall(r'\d+',numeric_tokens[0])} for reference in refs)):
                 issues.append('numeric_marker_needs_review')
             source_author = text[start:match.start(1)].rstrip().rstrip('（(').rstrip()
             for reference in refs:

@@ -311,6 +311,12 @@ class Audit:
                 if isinstance(item, dict) and "expected_text" in item and item["expected_text"] != text(p):
                     raise ValueError("role-map 的 expected_text 不匹配：" + pid)
                 confidence, basis = "high", "显式、SHA-256 绑定角色映射"
+            elif sid.startswith("FITRepair_"):
+                from format_engine import _read_repair_style
+                repaired = _read_repair_style(style)
+                role, confidence, basis = repaired[0], "high", "来源绑定的分页修复样式"
+            elif sid.startswith("FITCode_"):
+                role, confidence, basis = "appendix_code", "high", "保留原字体及缩进的附录代码样式"
             elif sid.startswith("FIT_"):
                 role, confidence, basis = sid[4:], "high", "已有 FIT 命名样式"
             elif name in names_to_roles:
@@ -385,6 +391,8 @@ class Audit:
                 elif inside_table: role, confidence = "table_unclassified", "low"
                 elif self.body_start and index >= self.body_start and not appendix:
                     role = "body"
+            if any(a.tag in {q('drawing'),q('pict'),q('object')} for a in p.iterancestors()):
+                role,confidence,basis='protected_object_text','high','嵌入图形内部文字，保留原对象并逐页复核'
             if role:
                 self.roles[pid] = (role, confidence, basis)
                 self.evidence[role].append(pid)
@@ -394,7 +402,7 @@ class Audit:
             for pid, (role, confidence, basis) in list(self.roles.items()):
                 if int(pid[1:]) < cn_abstract_idx and role == "figure" and basis == "文本和结构启发式":
                     self.roles[pid] = ("cover_image_unclassified", "low", "前置封面图形，未作正文图片处理")
-        title_candidates = self.evidence["cover_title"] + self.evidence["cn_title"]
+        title_candidates = self.evidence["cn_title"] + self.evidence["cover_title"]
         if self.title_override:
             self.title = self.title_override
         elif title_candidates:
@@ -462,6 +470,13 @@ class Audit:
             if role not in self.spec["roles"]: continue
             p, pp = self.ps[pid], self.effective_p(self.ps[pid])
             target = self.spec["defaults"] | self.spec["roles"][role]
+            repair = None
+            if self.sid(p).startswith("FITRepair_"):
+                from format_engine import _read_repair_style
+                repair = _read_repair_style(self.styles.get(self.sid(p)))[1]
+                for key, spec_key in (("before_pt","before_pt"),("after_pt","after_pt"),("page_break_before","page_break"),("keep_with_next","keep_next"),("keep_lines","keep_lines")):
+                    if key in repair: target[spec_key] = repair[key]
+                if "line_min_pt" in repair: target.update(line_pt=repair["line_min_pt"],line_rule="atLeast")
             native_front_layout = role.startswith("cover_") or role.startswith("commitment_")
             if raw_role in {"body_math", "table_math"} or p.findall(".//m:oMath", NS):
                 target = target | {"line_rule": "atLeast"}
@@ -566,6 +581,7 @@ class Audit:
             mark_controls = sorted(set(props(p.find("w:pPr/w:rPr", NS))) & RUN_CONTROLS)
             direct_runs = []
             for ri, r in enumerate(p.iter(q("r")), 1):
+                if next((a for a in r.iterancestors() if a.tag==q('p')),None) is not p: continue
                 if not text(r).strip() or any(a.tag.startswith("{"+M+"}") for a in r.iterancestors()): continue
                 controls = sorted(set(props(r.find(q("rPr")))) & RUN_CONTROLS)
                 if controls: direct_runs.append({"run_index": ri, "properties": controls})
@@ -577,7 +593,7 @@ class Audit:
                 contextual_layout = not direct_runs and not mark_controls and (
                     set(blockers) <= {"spacing"} and role in {"cn_keywords", "en_keywords", "table_caption", "figure_caption", "figure", "source"}
                     or has_math and set(blockers) <= {"spacing", "keepNext"}
-                    or set(blockers) <= {"keepNext"} and followed_object
+                    or set(blockers) <= {"keepNext"} and (followed_object or role=="table_text" and any(a.tag==q("tbl") for a in p.iterancestors()))
                     or set(blockers) <= {"pageBreakBefore"} and role in {"chapter", "cn_title", "en_title", "toc_heading", "reference_heading", "acknowledgement_heading", "appendix_heading", "conclusion_heading"})
                 self.add("info" if contextual_layout else "warning", "style.contextual_layout_override" if contextual_layout else "style.direct_format_override", self.locate(pid),
                          {"style_id": sid, "paragraph_properties": blockers,
@@ -785,11 +801,99 @@ class Audit:
                              {"style_id": self.sid(p), "numId": nid, "ilvl": level, "list_level_pStyle": val(lvl.find(q("pStyle"))), "style_chain": style_chain},
                              "标题样式与同一多级列表建立有效绑定，新增段落套样式仍能自动编号",
                              "现有段落有直接 numPr 不等于样式绑定完整。确认样式/列表关联，在内部副本中新增标题并检查真实编号；不要删改标题文字。", "requires_role_review", confidence)
-        all_ids = set().union(*numbering_ids.values()) if numbering_ids else set()
-        if len(all_ids) > 1:
+        continuity_problems = self.heading_list_problems()
+        if continuity_problems:
             self.add("warning", "heading.disconnected_lists", {"part": "word/numbering.xml"},
-                     {k: sorted(v) for k, v in numbering_ids.items()}, "四级标题同一连续多级列表，子级正确重启",
-                     "检查这些列表是否属于独立附录；正文层级统一绑定，渲染检查章节递增和子级重启。", "requires_role_review")
+                     {"role_numIds": {k: sorted(v) for k, v in numbering_ids.items()},
+                      "violations": continuity_problems},
+                     "普通章节共用连续多级列表；已确认的无编号一级标题下使用独立、从1重启的受管子级列表",
+                     "核对真实文档顺序及标题角色。正文不能章内换表；结论、附录等独立区块须各自绑定完整且唯一的重启定义，并渲染核对。", "requires_role_review")
+
+    def heading_list_problems(self):
+        """Accept only structurally justified, fully specified v10 restarts.
+
+        A second numId alone is neither a defect nor proof of a valid restart.
+        The boundary must be a confirmed unnumbered heading in the actual body,
+        and all subordinate headings in that block must share its own list.
+        """
+        restart_roles = {"conclusion_heading", "reference_heading", "appendix_heading", "acknowledgement_heading"}
+        body = self.doc.find(q("body")); blocks = []; active = None
+        ordinary_ids, seen, problems = set(), set(), []
+
+        def heading_id(pid):
+            np = self.resolved_num(self.ps[pid])
+            nid = val(np.find(q("numId"))) if np is not None else None
+            return nid if nid not in {None, "0"} else None
+
+        for p in body:
+            pid = self.pid.get(p)
+            role, confidence, _ = self.roles.get(pid, (None, None, None))
+            if role in restart_roles:
+                active = {"boundary": pid, "confirmed": confidence == "high",
+                          "boundary_numId": heading_id(pid), "headings": []}
+                blocks.append(active)
+            elif role == "chapter":
+                active = None
+            if role not in NUMBER_TARGETS: continue
+            seen.add(pid); nid = heading_id(pid)
+            if active is None:
+                if nid is not None: ordinary_ids.add(nid)
+            else:
+                active["headings"].append((pid, nid))
+        # A heading in a table/container is not licensed by a nearby body
+        # boundary. Retain the original conservative continuity requirement.
+        for pid, (role, _, _) in self.roles.items():
+            if role in NUMBER_TARGETS and pid not in seen:
+                nid = heading_id(pid)
+                if nid is not None: ordinary_ids.add(nid)
+        if len(ordinary_ids) > 1:
+            problems.append({"reason": "ordinary_headings_use_multiple_lists", "numIds": sorted(ordinary_ids)})
+
+        def num_definition(nid):
+            matches = self.numbering.findall(f"w:num[@w:numId='{nid}']", NS) if self.numbering is not None else []
+            return matches[0] if len(matches) == 1 else None
+
+        ordinary_aids = {val(n.find(q("abstractNumId"))) for nid in ordinary_ids
+                         if (n := num_definition(nid)) is not None}
+        claimed = set()
+        for block in blocks:
+            if not block["headings"]: continue
+            ids = {nid for _, nid in block["headings"]}
+            reasons = []
+            if not block["confirmed"]: reasons.append("unconfirmed_boundary_role")
+            if block["boundary_numId"] is not None: reasons.append("boundary_is_automatically_numbered")
+            if len(ids) != 1 or None in ids:
+                reasons.append("block_does_not_share_one_complete_list")
+            else:
+                nid = next(iter(ids)); num = num_definition(nid)
+                if nid in ordinary_ids: reasons.append("block_reuses_ordinary_list")
+                if nid in claimed: reasons.append("restart_list_reused_by_another_block")
+                claimed.add(nid)
+                aid = val(num.find(q("abstractNumId"))) if num is not None else None
+                abstracts = self.numbering.findall(f"w:abstractNum[@w:abstractNumId='{aid}']", NS) if self.numbering is not None else []
+                abstract = abstracts[0] if len(abstracts) == 1 else None
+                if (abstract is None or val(abstract.find(q("name"))) != "FITv10Headings"
+                        or ordinary_aids and ordinary_aids != {aid}):
+                    reasons.append("restart_abstract_is_not_the_shared_managed_definition")
+                else:
+                    levels = abstract.findall(q("lvl"))
+                    if len(levels) != 4 or {val(x, "ilvl") for x in levels} != {"0", "1", "2", "3"}:
+                        reasons.append("managed_definition_has_incomplete_levels")
+                    else:
+                        for level, fmt, label in NUMBER_TARGETS.values():
+                            lvl = abstract.find(f"w:lvl[@w:ilvl='{level}']", NS)
+                            if (val(lvl.find(q("numFmt"))) != fmt or val(lvl.find(q("lvlText"))) != label
+                                    or val(lvl.find(q("start"))) != "1"
+                                    or val(lvl.find(q("lvlRestart"))) not in {None, str(level)}):
+                                reasons.append("managed_definition_has_invalid_level_controls"); break
+                overrides = num.findall(q("lvlOverride")) if num is not None else []
+                if (len(overrides) != 3 or {val(x, "ilvl") for x in overrides} != {"1", "2", "3"}
+                        or any(len(x) != 1 or x[0].tag != q("startOverride") or val(x[0]) != "1" for x in overrides)):
+                    reasons.append("restart_requires_exact_child_level_start_overrides")
+            if reasons:
+                problems.append({"boundary": block["boundary"], "numIds": sorted(x for x in ids if x is not None),
+                                 "headings": [pid for pid, _ in block["headings"]], "reasons": reasons})
+        return problems
 
     def resolved_num(self, p):
         # Reuse the existing helper's robust inherited numPr/pStyle resolution.
@@ -947,6 +1051,89 @@ class Audit:
                                     "size_pt": target["size_pt"], "alignment": "center", "header_bottom_border_pt": 0.5 if role == "header" else None},
                          "通过可见页眉/页码样式修复有效属性，并保留 PAGE 等字段结构。")
 
+    def continuation_caption(self, table, label):
+        """Recognize a managed split only through a compatible, captioned chain.
+
+        The displayed words alone are not provenance. The format-stage verifier
+        separately replays the source-bound split; this static audit also checks
+        the actual adjacent tables and their repeated header structure.
+        """
+        body = self.doc.find(q("body"))
+        mapped = self.mapping.get("tables", {})
+        header_forbidden = {q(n) for n in (
+            "tbl", "drawing", "pict", "object", "fldChar", "fldSimple", "instrText",
+            "bookmarkStart", "bookmarkEnd", "ins", "del", "moveFrom", "moveTo",
+            "commentRangeStart", "commentRangeEnd", "commentReference",
+            "footnoteReference", "endnoteReference")}
+
+        def signature(target):
+            setting = mapped.get(self.tid.get(target), {})
+            kind, nh = setting.get("kind"), setting.get("header_rows", 1)
+            rows = target.findall(q("tr"))
+            grid = target.find(q("tblGrid"))
+            widths = tuple(val(col, "w") for col in grid) if grid is not None else ()
+            if (kind not in {"three-line", "complex", "panel"} or type(nh) is not int
+                    or not 0 < nh < len(rows) or not widths
+                    or any(not (width or '').isdigit() or int(width) <= 0 for width in widths)):
+                return None
+            headers = []
+            for ri, row in enumerate(rows):
+                cells = row.findall(q("tc"))
+                spans = [val(cell.find("w:tcPr/w:gridSpan", NS), default="1") for cell in cells]
+                if (not cells or any(not span.isdigit() or int(span) <= 0 for span in spans)
+                        or sum(map(int, spans)) != len(widths)):
+                    return None
+                if ri == nh and any(cell.find("w:tcPr/w:vMerge", NS) is not None
+                                    and val(cell.find("w:tcPr/w:vMerge", NS), default="continue") != "restart"
+                                    for cell in cells):
+                    return None
+                if ri >= nh:
+                    continue
+                if (not enabled(row.find("w:trPr/w:tblHeader", NS))
+                        or any(el.tag in header_forbidden or el.tag.startswith("{" + M + "}") for el in row.iter())):
+                    return None
+                headers.append(tuple((span,
+                    val(cell.find("w:tcPr/w:vMerge", NS), default="continue")
+                        if cell.find("w:tcPr/w:vMerge", NS) is not None else None,
+                    tuple(text(p) for p in cell.findall(q("p")))) for cell, span in zip(cells, spans)))
+            if not any(text(row).strip() for row in rows[:nh]):
+                return None
+            return kind, nh, widths, tuple(headers)
+
+        current, marker, links = table, label, []
+        while marker is not None:
+            if (current.getparent() is not body or marker.getparent() is not body
+                    or marker.tag != q("p") or marker.getnext() is not current
+                    or text(marker).strip() != "续前表" or self.sid(marker) != "FIT_continuation_label"):
+                return None
+            style = self.styles.get("FIT_continuation_label")
+            pp = self.effective_p(marker)
+            if (style is None or val(style, "type") != "paragraph"
+                    or val(style.find(q("name"))) != self.spec["roles"]["continuation_label"]["name"]
+                    or pvalue(pp, "jc") != "right" or pvalue(pp, "keepNext", default="0") in {"0", "false", "off"}
+                    or marker.find("w:pPr/w:sectPr", NS) is not None
+                    or any(child.tag != q("pPr") and child.tag != q("r") for child in marker)
+                    or any(child.tag not in {q("rPr"), q("t")} for run in marker.findall(q("r")) for child in run)):
+                return None
+            previous = marker.getprevious()
+            if previous is None or previous.tag != q("tbl"):
+                return None
+            shape = signature(current)
+            if shape is None or shape != signature(previous):
+                return None
+            links.append({"table_id": self.tid[current], "preceding_table_id": self.tid[previous],
+                          "label_paragraph_id": self.pid.get(marker)})
+            before = previous.getprevious()
+            while before is not None and before.tag == q("p") and not text(before).strip():
+                before = before.getprevious()
+            caption = text(before).strip() if before is not None and before.tag == q("p") else ""
+            numbered = re.match(r"^(?:表\s*\d+\s*[-－—]\s*\d+|附表\s*\d+)", caption)
+            if numbered and caption[numbered.end():].strip():
+                return {"table_id": self.tid[table], "origin_table_id": self.tid[previous],
+                        "origin_caption": caption, "links": links}
+            current, marker = previous, before
+        return None
+
     def check_tables(self):
         mapped = self.mapping.get("tables", {})
         for tid, table in self.ts.items():
@@ -959,7 +1146,7 @@ class Audit:
             if setting is None and (math_table and len(rows) == 1 or code_table or table_roles & {"cover_info", "cover_title"}): continue
             if setting is None:
                 if max([len(r.findall(q("tc"))) for r in rows] or [0]) < 2: continue
-                self.add("info", "table.type_unconfirmed", self.locate(tid=tid),
+                self.add("warning", "table.type_unconfirmed", self.locate(tid=tid),
                          {"rows": len(rows), "max_cells": max([len(r.findall(q("tc"))) for r in rows] or [0])},
                          "数据表/复杂文字表/封面承诺表/公式布局表分别确认",
                          "在 role-map.tables 显式标注 kind 与 header_rows；未确认前不把表格统一套成三线表。", "requires_role_review", "low")
@@ -1017,10 +1204,14 @@ class Audit:
             prior = table.getprevious()
             while prior is not None and prior.tag == q("p") and not text(prior).strip(): prior = prior.getprevious()
             caption = text(prior).strip() if prior is not None and prior.tag == q("p") else ""
-            if not re.match(r"^表\s*\d+\s*[-－—]\s*\d+", caption):
-                self.add("warning", "table.caption_missing_or_position", self.locate(tid=tid),
-                         {"preceding_text": short(caption)}, "表序与表名在表上方居中，按章编号",
-                         "确认表题是否位于文本框或别处；纯排版不能补写表名、编号或续前表文字。", "requires_content_authorization", "medium")
+            if not re.match(r"^(?:表\s*\d+\s*[-－—]\s*\d+|附表\s*\d+\s)", caption):
+                continuation = self.continuation_caption(table, prior) if caption == "续前表" else None
+                if continuation is not None:
+                    self.evidence["table_continuations"].append(continuation)
+                else:
+                    self.add("warning", "table.caption_missing_or_position", self.locate(tid=tid),
+                             {"preceding_text": short(caption)}, "表序与表名在表上方居中，按章编号；续表须有受管标记、相容的前表和重复表头",
+                             "确认表题位置；续前表须追溯到原表题并核对列结构和重复表头，不能仅凭这三个字免除审核。", "requires_content_authorization", "medium")
         if self.ts:
             self.add("info", "table.render_gate", {"part": "word/document.xml", "table_ids": list(mapped)},
                      "XML 不包含最终跨页布局", "表不越页边、无截字，跨页有重复表头；需要时续前表标識",

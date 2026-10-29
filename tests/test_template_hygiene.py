@@ -53,7 +53,7 @@ class TemplateHygieneTests(unittest.TestCase):
                              E.tostring(H.parse(after[name]), method='c14n'), name)
         with self.assertRaisesRegex(ValueError, 'new path'):
             H.clean_template(self.source, output)
-        with self.assertRaisesRegex(ValueError, 'pinned original'):
+        with self.assertRaisesRegex(ValueError, 'pinned anonymized school template'):
             H.clean_template(output, self.work / 'second.docx')
         cleaned_again, changes = H.strip_comment_parts(after)
         self.assertEqual(cleaned_again, after)
@@ -170,7 +170,7 @@ class TemplateHygieneTests(unittest.TestCase):
     def test_cli_rejects_non_template_and_keeps_input(self):
         path = self.work / 'other.docx'
         path.write_bytes(b'not the pinned original')
-        with self.assertRaisesRegex(ValueError, 'pinned original'):
+        with self.assertRaisesRegex(ValueError, 'pinned anonymized school template'):
             H.clean_template(path, self.work / 'output.docx')
         self.assertEqual(path.read_bytes(), b'not the pinned original')
         self.assertFalse((self.work / 'output.docx').exists())

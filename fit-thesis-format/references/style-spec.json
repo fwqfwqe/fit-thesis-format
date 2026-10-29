@@ -13,7 +13,7 @@
     "cn_abstract_heading":{"name":"论文-中文摘要标题","east_asia":"黑体","size_pt":14,"align":"center","before_pt":24,"after_pt":24,"line_pt":24,"keep_next":true},
     "cn_abstract":{"name":"论文-中文摘要正文","indent_chars":2},
     "cn_keywords":{"name":"论文-中文关键词","east_asia":"黑体","align":"left","line_pt":16},
-    "en_title":{"name":"论文-英文题目","east_asia":"Times New Roman","size_pt":15,"bold":true,"align":"center","before_pt":30,"after_pt":30,"line_pt":30,"keep_next":true},
+    "en_title":{"name":"论文-英文题目","east_asia":"Times New Roman","size_pt":15,"bold":true,"align":"center","before_pt":30,"after_pt":30,"line_pt":30,"keep_next":true,"page_break":true},
     "en_abstract_heading":{"name":"论文-英文摘要标题","east_asia":"Times New Roman","size_pt":14,"bold":true,"align":"center","before_pt":24,"after_pt":24,"line_pt":24,"keep_next":true},
     "en_abstract":{"name":"论文-英文摘要正文","east_asia":"Times New Roman","indent_chars":2,"line_pt":16},
     "en_keywords":{"name":"论文-英文关键词","east_asia":"Times New Roman","bold":true,"align":"left","line_pt":16},
@@ -21,6 +21,7 @@
     "toc1":{"name":"论文-一级目录","align":"left"},
     "toc2":{"name":"论文-二级目录","align":"left","left_chars":2},
     "table_caption":{"name":"论文-表题","size_pt":10.5,"align":"center","keep_next":true},
+    "continuation_label":{"name":"论文-续表标记","size_pt":10.5,"align":"right","keep_next":true},
     "figure_caption":{"name":"论文-图题","size_pt":10.5,"align":"center"},
     "figure":{"name":"论文-图片段落","align":"center","line_rule":"atLeast","keep_next":true},
     "table_text":{"name":"论文-表内文字","size_pt":10.5,"align":"center"},
@@ -41,14 +42,15 @@
     "commitment_label":{"name":"论文-承诺书分项标题","east_asia":"宋体","size_pt":14,"bold":true,"align":"center","line_rule":"atLeast","line_pt":20},
     "commitment_body":{"name":"论文-承诺书正文","east_asia":"宋体","size_pt":12,"indent_chars":2,"line_rule":"auto","line_pt":18},
     "commitment_info":{"name":"论文-承诺书信息","east_asia":"宋体","size_pt":12,"line_rule":"atLeast","line_pt":20},
+    "commitment_signature":{"name":"论文-承诺书签名日期","east_asia":"宋体","size_pt":12,"align":"right","line_rule":"atLeast","line_pt":20},
     "equation_number":{"name":"论文-公式编号","size_pt":12,"align":"right","line_rule":"atLeast","line_pt":20}
   },
   "decisions": [
     "图题及来源行距冲突按范本后文及实际设置使用固定20磅。",
     "二级目录采用实际样式的左缩进2字符，避免多行条目错位。",
     "封面题目和信息只明确字体字号，具体行距对齐保持原稿：助手为其提供可见样式，apply对齐缩进间距默认保留原段落。",
-    "公式不强设数学字体字号，不修改OMML，只设公式段落居中和至少20磅行距。",
+    "公式不强设数学字体字号，不修改OMML；段落左对齐，公式用版心中心制表位、编号用右边界制表位，至少20磅行距。",
     "中文标题黑体未另加粗；英文题目、Abstract及英文关键词按要求加粗。",
-    "附录、结论、参考文献、致谢标题不自动改文字或编号，不自动插入目录。"
+    "附录、结论、参考文献、致谢标题名称不改；完整学校模式纳入自动目录，严格逐字模式保留当前目录。"
   ]
 }

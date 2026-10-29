@@ -64,7 +64,9 @@ def install(dest, manifest_bytes, archive_bytes):
             if len(data) != entry['size'] or sha(data) != entry['sha256']:
                 raise ValueError('Package member failed verification: ' + item.filename)
             payloads.append((path, data))
-    for required in ('SKILL.md', 'START_HERE.md', 'scripts/prepare.py', 'scripts/delivery_check.py', 'scripts/review_plan.py',
+    for required in ('SKILL.md', 'START_HERE.md', 'scripts/thesis_job.py', 'scripts/format_engine.py',
+                     'scripts/integrity.py', 'scripts/office_render.ps1', 'references/rules-v10.json',
+                     'scripts/prepare.py', 'scripts/delivery_check.py', 'scripts/review_plan.py',
                      'scripts/narrative_citations.py', 'references/citation-consistency.md',
                      'scripts/template_hygiene.py', 'references/template-hygiene.md',
                      'assets/fit-economics-management-template-clean.docx',
@@ -84,8 +86,9 @@ def install(dest, manifest_bytes, archive_bytes):
             'skill_directory': str(dest / 'fit-thesis-format'),
             'next_read': str(dest / 'fit-thesis-format' / 'START_HERE.md'),
             'delivery_ready': False,
-            'remaining_steps': ['Read the instructions', 'Run prepare with the real paper',
-                                'Review the mappings before editing', 'Verify the final paper and its rendered pages']}
+            'remaining_steps': ['Read START_HERE.md and SKILL.md', 'Run thesis_job.py with the real paper',
+                                'Complete semantic and visual tasks, then resume',
+                                'Verify the same final paper in Word and WPS']}
 
 
 def main():

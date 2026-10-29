@@ -1,5 +1,15 @@
 # 通用渲染与逐页复核
 
+## v10：Word和WPS分别验收同一终稿
+
+完整任务通过 `office_probe.py` 和 `office_render.ps1` 自动执行真实能力试验和渲染，不能只查注册表。`office_render.ps1 -Engine word|wps -InputPath INPUT.docx -OutputPdf NEW.pdf` 只读导出；`-UpdateFields -SavedPath NEW.docx`仅在独立候选上刷新允许的排版字段。Python适配器 `office_probe.render(engine, source, pdf, saved_docx=None)` 负责校验实际报告及不允许改变的字段缓存。
+
+正式终稿优先由Word保存并通过内容保护；然后同一文件分别只读导出Word、WPS版本，逐页查看两套全部图像。WPS可能返回Microsoft Word的COM名称，必须按报告中的真实程序身份检查。运行 `thesis_job.py` 自动生成双引擎报告、页面清单及pending复核模板。实际看过才填pass。
+
+两套证据都必须绑定同一个最终DOCX。目录缓存页码逐项比较原生书签的实际页码；若两种引擎分页导致同一目录无法正确，修复分页后重验，不能提交两份不同DOCX。日期等非排版字段可能在应用打开时自行动态显示，须报告和检查，不因未调用Update就声称显示值恒定。
+
+下文为便携基础工具的详细说明；其中仅使用一个引擎的示例不替代完整任务的双引擎条件。v10正式字段刷新经 `integrity.py` 核验，其受控保存不再是“完全未支持的自定义阶段”。
+
 这一步把当前候选 Word 文件变成实际页面，再由具备图像查看能力的 AI 或人工检查。它不依赖特定 AI 品牌、插件、作者标记、专有运行时目录或文件链接语法。若工具不能直接打开文件，只能给建议，不能声称已经执行排版或逐页验收。v6 将 DOCX、PDF、每张页面图片和实际检查记录用哈希连接起来；修改最终文件后旧证据不能继续算通过。
 
 ## 选择当前环境已有的工具

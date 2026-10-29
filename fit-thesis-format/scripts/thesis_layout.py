@@ -53,7 +53,7 @@ def title_text(parts, locator):
     if p is None:
         raise ValueError('Title paragraph is absent.')
     # Do not copy a title with ambiguous field results, objects or revisions.
-    permitted = {F.q(x) for x in ('p', 'pPr', 'r', 'rPr', 't')}
+    permitted = {F.q(x) for x in ('p', 'pPr', 'r', 'rPr', 't','br','bookmarkStart','bookmarkEnd','proofErr')}
     for el in p.iter():
         if any(a.tag in {F.q('pPr'), F.q('rPr')} for a in el.iterancestors()):
             continue
@@ -82,7 +82,13 @@ def check_old_furniture(parts, root):
                 raise ValueError('Missing running-furniture part: ' + name)
             story = F.parse(parts[name])
             forbidden = F.PROTECTED_TAGS | {F.q(x) for x in ('tbl', 'ins', 'del', 'sdt', 'hyperlink', 'altChunk')}
-            if any(el.tag in forbidden for el in story.iter()):
+            codes=[(el.text or '').strip() for el in story.iter(F.q('instrText'))]
+            cached=''.join(story.xpath('.//w:t/text()',namespaces=F.NS)).strip()
+            pure_page_shape=(bool(codes) and all(re.fullmatch(r'PAGE(?:\s+\\\*\s+MERGEFORMAT)?',code,re.I) for code in codes)
+                             and (not cached or cached.isdigit())
+                             and not any(attr.startswith('{'+R+'}') for el in story.iter() for attr in el.attrib)
+                             and not any(el.tag in {F.q('object'),F.q('ins'),F.q('del'),F.q('hyperlink')} for el in story.iter()))
+            if any(el.tag in forbidden for el in story.iter()) and not pure_page_shape:
                 raise ValueError('Existing header/footer contains protected objects, revisions or structured content: ' + name)
 
 
@@ -183,6 +189,13 @@ def transform(parts, mapping):
     added = []
 
     def add_part(kind, data):
+        # Reuse only parts already owned by this transformer; never adopt or
+        # mutate user headers. Stable byte content means a second run adds none.
+        for existing in rels:
+            if not (existing.get('Id','').startswith('rIdFITLayout') and existing.get('Type') == R + '/' + kind): continue
+            target = existing.get('Target','')
+            name = target.lstrip('/') if target.startswith('/') else posixpath.normpath(posixpath.join('word',target))
+            if out.get(name) == data: return existing.get('Id')
         n = 1
         while f'word/{kind}{n}.xml' in out:
             n += 1

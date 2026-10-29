@@ -19,7 +19,7 @@ import zipfile
 
 from lxml import etree as E
 
-TEMPLATE_SHA256 = '83dac94cb138ab7b46fb100d9ac05c6e1ab8c7dec986ebefd2e5ca22bf359eac'
+TEMPLATE_SHA256 = 'e14b8f2146bf061d6164225cb7473bedc79c7bf1782b0c593336b435a9f2a9f7'
 W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 WORD_NAMESPACES = (W, 'http://purl.oclc.org/ooxml/wordprocessingml/main')
 PKG = 'http://schemas.openxmlformats.org/package/2006/relationships'
@@ -283,7 +283,7 @@ def clean_template(source, output, report=None):
         raise ValueError('Report must be a new path distinct from source and output')
     original = source.read_bytes()
     if digest(original) != TEMPLATE_SHA256:
-        raise ValueError('clean-template accepts only the pinned original school template; manuscripts are read-only')
+        raise ValueError('clean-template accepts only the pinned anonymized school template; manuscripts are read-only')
     parts = read_package(source)
     cleaned, changes = strip_comment_parts(parts)
     before, after = inspect_parts(parts), inspect_parts(cleaned)

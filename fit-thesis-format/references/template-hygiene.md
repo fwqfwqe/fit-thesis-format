@@ -4,8 +4,8 @@
 
 ## 默认使用净化模板
 
-- [原范本](../assets/fit-economics-management-template.docx)及 [source-comments.json](source-comments.json)保留原样，仅供查证。
-- [净化模板](../assets/fit-economics-management-template-clean.docx)用于复用学校组件，只去除历史批注。它仍含范文和示例信息，不能直接当作空白模板或合格成稿。
+- [匿名分发范本](../assets/fit-economics-management-template.docx)及[source-comments.json](source-comments.json)供格式查证。分发副本保留学校批注正文和排版，将作者统一为“学校模板批注”，去除评论者账号和设备元数据，示例姓名、学号留空。原始来源与分发副本哈希分别记录在[rules-v10.json](rules-v10.json)。
+- [净化模板](../assets/fit-economics-management-template-clean.docx)用于复用学校组件，在同样匿名处理后去除历史批注。它仍含范文题目、文字和示例日期，不能直接当作空白模板或合格成稿。
 - 对已有论文从原稿副本定点修改，按需要迁入净化模板中的组件，不从模板重建整篇论文。原稿真实作者、导师批注和修订默认保留；最终稿不新增审计批注，审核意见写在外部说明中。
 
 需要重新生成净化模板时，在完整技能目录内运行：
@@ -14,7 +14,7 @@
 python scripts/template_hygiene.py clean-template assets/fit-economics-management-template.docx work/template-clean.docx --report work/template-clean-report.json
 ```
 
-输出和报告必须是新路径。命令仅接受 SHA-256 为 `83dac94cb138ab7b46fb100d9ac05c6e1ab8c7dec986ebefd2e5ca22bf359eac` 的学校原范本，保持输入不变；**不能将用户论文交给此命令清空批注**。报告记录真实删除数量和前后检查结果，不代表完成页面视觉核验。
+输出和报告必须是新路径。命令仅接受SHA-256为`e14b8f2146bf061d6164225cb7473bedc79c7bf1782b0c593336b435a9f2a9f7`的本包匿名分发范本，保持输入不变；**不能将用户论文交给此命令清空批注**。该命令只清理批注，不是通用匿名工具。报告记录真实删除数量和前后检查结果，不代表完成页面视觉核验。
 
 ## 检查原稿与当前候选稿
 

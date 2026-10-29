@@ -51,10 +51,10 @@ def prepare(source, work):
         raise ValueError('Incomplete skill package: ' + ', '.join(missing))
     original_sha = sha(source)
     template_sha = sha(ROOT / 'assets' / 'fit-economics-management-template.docx')
-    if template_sha != '83dac94cb138ab7b46fb100d9ac05c6e1ab8c7dec986ebefd2e5ca22bf359eac':
+    if template_sha != 'e14b8f2146bf061d6164225cb7473bedc79c7bf1782b0c593336b435a9f2a9f7':
         raise ValueError('School template does not match the retained reference')
     # Discover before creating outputs. The doctor does not claim a renderer works.
-    environment = invoke({'action': 'doctor'})
+    environment = invoke({'action': 'doctor', 'legacy': True})
     if environment.get('result', {}).get('static_cli_ready') is not True:
         raise ValueError('Static tooling is not ready. Use Python 3.10+ and install the package requirements before preparing a paper; no work directory was created.')
     work.mkdir(parents=True, exist_ok=False)
