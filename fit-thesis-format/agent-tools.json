@@ -15,7 +15,7 @@
     "stdout": "one UTF-8 JSON result object",
     "path_resolution": "All relative paths resolve against the process working directory, including when --request points to a JSON file in another directory.",
     "exit_codes": {
-      "0": "Operation completed, including delivery_check with needs_review; read delivery_ready and blocking_items.",
+      "0": "The operation completed; correction_required and capability_required may still return 0. Read status, delivery_ready, next and repair_plan.",
       "2": "Invalid request, execution failure or failed check"
     },
     "request_file_alternative": [
@@ -23,7 +23,8 @@
       "scripts/agent_cli.py",
       "--request",
       "request.json"
-    ]
+    ],
+    "runtime_selection": "Replace python with the current host-managed Python executable when needed; do not hard-code a user-private path."
   },
   "functions": [
     {
@@ -470,8 +471,9 @@
         "render_review_performed": false,
         "checks": "Static operation outcome, input-file preservation, and explicit not_run rendering/visual review/native field-update status.",
         "limitations": "Unperformed work and scope restrictions. Success never implies full structure reconstruction or a completed visual review.",
-        "blocking_items": "delivery_check findings that prevent a completion claim, copied from the freshly generated report.",
-        "next": "Pending semantic decisions, missing capability, or actual page-review tasks with artifact paths and hashes."
+        "blocking_items": "Bounded samples only; blocking_item_count/blocking_items_omitted report total coverage and blocking_items_file points to complete unchanged findings in job.json. Read the full findings before completing repairs.",
+        "next": "Pending tasks with source-bound inspection_file and compact inspection statistics plus at most 30 exact-text candidate samples. Full mapping remains in inspection.json; read every required item, merge existing decisions from job.json, then use submit_request.",
+        "repair_plan": "Guidance only: counts, bounded finding samples, omitted counts, complete_findings file/pointers, completion_policy and request objects. Sampling never waives audit findings or changes delivery_ready."
       }
     }
   ],
@@ -486,5 +488,28 @@
     "publishing": "Basic tools and delivery reports stage into temporary paths and publish exclusively. Delivery reports are copied byte-for-byte without changing fresh hashes. prepare owns its new directory and records partial failures there; it never publishes a formatted DOCX.",
     "review_boundaries": "No host-independent protocol can supply missing file access, Python execution, fonts, DOCX rendering or human-equivalent page inspection. The calling AI must report missing capabilities.",
     "job_state": "Job original and rule/code hashes remain fixed; state replacement is atomic. No source overwrite. Each correction uses a new attempt directory; old evidence is retained and invalidated."
+  },
+  "execution_contract": {
+    "workflow_actions": [
+      "run",
+      "next",
+      "submit",
+      "resume",
+      "verify"
+    ],
+    "full_task_entry": "run (agent_cli delegates to the same thesis_job state machine)",
+    "completion_condition": {
+      "status": "complete",
+      "delivery_ready": true
+    },
+    "must_continue_on": [
+      "semantic_review_required",
+      "visual_review_required",
+      "correction_required"
+    ],
+    "recovery": "Reuse work_dir; merge existing decisions from job.json before submit. Do not run a new job for each correction.",
+    "missing_facts": "Do all independent formatting first; never invent identities, titles, acknowledgements or citation facts. Check the existing bibliography before treating years as missing facts.",
+    "adapter_guide": "references/host-adapters.md",
+    "client_validation": "Vendor-neutral protocol support is not evidence of actual DeepSeek Harness, WorkBuddy or other client execution. Report concrete tested clients and environments separately."
   }
 }

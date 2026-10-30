@@ -255,8 +255,8 @@ def research_text(parts, mapping):
                 if in_counter and hidden: continue
                 texts.append(el.text or '')
         text = ''.join(texts)
-        if role in ('chapter', 'section', 'subsection', 'subsubsection'):
-            text = re.sub(r'^(?:第[一二三四五六七八九十百\d]+章\s*|[一二三四五六七八九十百]+[、．.]\s*|[（(][一二三四五六七八九十百\d]+[）)]\s*|\d+(?:\.\d+){1,3}[.、．]?\s*|\d+[.、．]\s*)', '', text)
+        if role in ('chapter', 'section', 'subsection', 'subsubsection', 'conclusion_heading'):
+            text = re.sub(r'^(?:第[一二三四五六七八九十百\d]+章\s*|[一二三四五六七八九十百]+[、．.]\s*|[（(][一二三四五六七八九十百\d]+[）)]\s*|\d+(?:\.\d+){1,3}[.、．]?\s*|\d+[.、．]\s*|\d{1,3}[\s\u3000]+(?=\S))', '', text)
         if role in ('figure_caption', 'table_caption'):
             text = re.sub(r'^([图表]\s*\d+)[.－—](\d+)', r'\1-\2', text)
         if role == 'equation':
@@ -395,6 +395,25 @@ def verify_transition(source, final, kind, report=None):
                 # Citation display changes require their separately verified
                 # source-bound map. The engine reports exact old/new paragraphs.
                 for op in report.get('operations', []):
+                    if op.get('kind') == 'narrative_year_insertion':
+                        from narrative_years import verified
+                        if not verified(op,a):errors.append('Invalid bibliography-bound year insertion')
+                        elif old_text[op['before']]<=0:errors.append('Year insertion source payload missing')
+                        else:old_text[op['before']]-=1;old_text[op['after']]+=1
+                    if op.get('kind') == 'academic_label':
+                        from academic_labels import verified
+                        if not verified(op,parse(a['word/document.xml']),report['source_mapping']):
+                            errors.append('Invalid source-bound academic label operation: '+str(op.get('locator')))
+                        else:
+                            role=report['source_mapping'].get('paragraphs',{}).get(op['locator'],{})
+                            role=role if isinstance(role,str) else role.get('role')
+                            def normalized_label(value):
+                                if role=='equation':return re.sub(r'^公式\s*','',value).replace('（','(').replace('）',')')
+                                if role in ('table_caption','figure_caption'):return re.sub(r'^([图表]\s*\d+)[.－—](\d+)',r'\1-\2',value)
+                                return value
+                            before,after=map(normalized_label,(op['before'],op['after']))
+                            if old_text[before]<=0:errors.append('Academic label source payload missing')
+                            else:old_text[before]-=1;old_text[after]+=1
                     if op in transcriptions:
                         old=re.sub(r'^公式\s*','',op['before']).replace('（','(').replace('）',')')
                         new=re.sub(r'^公式\s*','',op['after']).replace('（','(').replace('）',')')

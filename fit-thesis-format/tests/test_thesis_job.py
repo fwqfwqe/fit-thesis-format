@@ -30,11 +30,12 @@ class JobTests(unittest.TestCase):
         with patch.object(J, 'doctor', return_value={'dual_render_capable': False}):
             return J.new_job({'source': str(self.source), 'work_dir': str(self.work)})
 
-    def test_missing_wps_stops_before_format(self):
+    def test_missing_wps_still_prepares_reversible_format_candidate(self):
         result = self.start_blocked()
-        self.assertEqual(result['status'], 'capability_required')
+        self.assertIn(result['status'], ('capability_required','semantic_review_required'))
         self.assertFalse(result['delivery_ready'])
-        self.assertFalse(list(self.work.glob('attempt-*')))
+        self.assertTrue(list(self.work.glob('attempt-*/formatted.docx')))
+        self.assertTrue(list(self.work.glob('attempt-*/static-audit.json')))
         self.assertEqual(J.sha(self.source), J.sha(self.work / 'original.docx'))
 
     def test_source_mutation_invalidates_job(self):
@@ -65,9 +66,9 @@ class JobTests(unittest.TestCase):
     def test_atomic_state_and_resume_reprobe(self):
         self.start_blocked()
         with patch.object(J, 'doctor', return_value={'dual_render_capable': False}) as probe:
-            result = J.execute({'action': 'resume', 'work_dir': str(self.work)})
+            result = J.execute({'action': 'resume', 'work_dir': str(self.work),'reprobe': True})
             probe.assert_called_once()
-            self.assertEqual(result['status'], 'capability_required')
+            self.assertIn(result['status'], ('capability_required','semantic_review_required'))
         self.assertFalse(list(self.work.glob('*.tmp')))
 
     def test_final_mapping_mandatory_and_complete(self):
@@ -152,7 +153,8 @@ class JobTests(unittest.TestCase):
         self.assertEqual(task['inspection']['source_sha256'], J.sha(self.source))
         candidate = next(c for c in task['inspection']['candidates'] if c['id'] == 'p000001')
         self.assertEqual(candidate['text'], '受保护的论文正文')
-        self.assertEqual(task['decision_template']['paragraphs']['p000001']['expected_text'], '受保护的论文正文')
+        self.assertEqual(task['decision_template']['paragraphs'], {})
+        self.assertEqual(J.read(task['inspection_file'])['candidates'][0]['text'], '受保护的论文正文')
 
     def test_duplicate_corrections_stop_without_changing_source(self):
         self.start_blocked()
@@ -192,7 +194,7 @@ class JobTests(unittest.TestCase):
         mapping = {'source_sha256': J.sha(final), 'paragraphs': {'p000001': {'role': 'body'}}, 'tables': {}}
         map_path = self.work / 'final-map.json'; J.atomic_json(map_path, mapping)
         state = J.load_state(self.work)
-        state.update(final=str(final), final_sha256=J.sha(final), final_mapping=str(map_path),
+        state.update(final=str(final), final_sha256=J.sha(final), final_mapping=str(map_path), unresolved=[],
                      stages=[{'kind':'format','source':str(self.source),'output':str(final),'output_sha256':J.sha(final),'report':str(report)}])
         J.save_state(self.work, state)
         with patch.object(J, 'verify_stage', return_value={'passed':True}), patch('format_audit.Audit') as audit, patch.object(D, 'check_dual_render', return_value={'passed':True}), patch('rule_coverage.evaluate', return_value={'passed':True,'rule_results':[]}):

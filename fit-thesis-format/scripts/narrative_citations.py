@@ -33,6 +33,33 @@ END_PUNCTUATION = '。.!?！？;；'
 NUMERIC_MARKER = re.compile(r'[\[［]\s*\d[\d\s,，、;；\-–—]*[\]］]')
 
 
+def is_organization_author(value):
+    """Conservative Chinese corporate-author hint; 和 is not a name separator."""
+    value = (value or '').strip()
+    return bool(3 <= len(value) <= 100
+                and re.fullmatch(r'[\u3400-\u9fff]+', value)
+                and re.search(r'(?:办公厅|办公局|委员会|人民政府|研究院|研究所|科学院|大学|学院|协会|银行|公司|集团|联合会|中心|总局|部|局)$', value))
+
+
+def publication_years(text, author_end=0):
+    """Separate typed-reference publication years from pages/DOI/access dates.
+
+    Unrecognized formats retain the old conservative year hints.  Recognized
+    types with no publication year return no year rather than guessing a page.
+    Multiple real publication-year candidates remain ambiguous.
+    """
+    kind = re.search(r'\[(?:J|M|D|N|R|S|C|G|P|EB|DB|CP|DS|A|Z)(?:/(?:OL|MT|CD|DK))?\]', text[author_end:], re.I)
+    if kind is None:
+        return [m.group() for m in YEAR.finditer(text[author_end:])]
+    publication = text[author_end + kind.end():]
+    stop = re.search(r'\bDOI\b|https?://|www\.', publication, re.I)
+    if stop: publication = publication[:stop.start()]
+    publication = re.sub(r'[\[［]\s*\d{4}(?:[-/.年]\d{1,2}){1,2}日?\s*[\]］]', '', publication)
+    page = re.search(r'[:：]\s*(?:pp?\.?\s*)?\d|\bpp?\.\s*\d', publication, re.I)
+    if page: publication = publication[:page.start()]
+    return list(dict.fromkeys(m.group() for m in YEAR.finditer(publication)))
+
+
 def _span(value, text, label, keys=('start', 'end', 'expected_text')):
     if not isinstance(value, dict) or set(value) != set(keys):
         raise ValueError(label + ': requires exactly ' + '/'.join(keys))
@@ -124,7 +151,7 @@ def _reference(record, paragraphs, contexts):
         if not isinstance(display, str) or not display:
             raise ValueError('Author display_name must be an evidenced name')
         if language == 'zh':
-            if HAN_NAME.fullmatch(name) is None or display != name:
+            if (HAN_NAME.fullmatch(name) is None and not is_organization_author(name)) or display != name:
                 raise ValueError('Chinese author display must preserve the exact bibliography name')
         elif language == 'en':
             if EN_NAME.fullmatch(name) is None or EN_NAME.fullmatch(display) is None:
@@ -448,11 +475,11 @@ def _guess_reference(text):
     else:
         body, suffix = area, None
     # Chinese organization names may contain 和 (工业和信息化部).
-    organization=bool(re.search(r'(?:部|局|委员会|研究院|大学|协会|银行|公司|联合会)$',body.strip())) and not re.search(r'[,，、;；&]',body)
+    organization=is_organization_author(body.strip()) and not suffix
     names = [body.strip()] if organization else [n.strip() for n in re.split(r'\s*(?:[,，、;；&]|\band\b|和|与)\s*', body) if n.strip()]
     authors = []
     for name in names:
-        if HAN_NAME.fullmatch(name):
+        if HAN_NAME.fullmatch(name) or organization:
             authors.append({'exact_name': name, 'display_name': name, 'language': 'zh'})
         elif EN_NAME.fullmatch(name):
             authors.append({'exact_name': name, 'display_name': name.split()[0], 'language': 'en'})
@@ -465,7 +492,8 @@ def _guess_reference(text):
     if suffix and len(authors) != 3:
         issues.append('unsupported_truncated_author_list')
     return {'reference_number': int(number.group(1)), 'author_list': {'start': start, 'end': end, 'expected_text': text[start:end]},
-            'authors': authors, 'years': [m.group() for m in YEAR.finditer(text[end:])],
+            'authors': authors, 'years': publication_years(text, end),
+            'author_kind': 'organization' if organization else 'personal_or_unconfirmed',
             'truncation': suffix, 'author_count_min': 4 if suffix else len(authors), 'issues': issues}
 
 

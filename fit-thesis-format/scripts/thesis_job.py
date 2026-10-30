@@ -300,11 +300,6 @@ def advance(work, state=None):
         if 'capabilities' not in state:
             state['capabilities'] = doctor(bound_path(work, 'capabilities'), smoke=True)
             save_state(work, state)
-        if not state['capabilities'].get('dual_render_capable'):
-            state['status'] = 'capability_required'
-            state['blocking_items'] = [{'check': 'dual_engine', 'reason': 'Both Word and WPS must pass actual smoke rendering before formatting'}]
-            save_state(work, state)
-            return response(work, state)
         if 'candidate' not in state:
             import format_engine
             revision = state['revision']
@@ -314,6 +309,7 @@ def advance(work, state=None):
             source = bound_path(work, 'original.docx')
             if not state.get('inspection'):
                 state['inspection'] = format_engine.inspect_document(source)
+                atomic_json(bound_path(work,'inspection.json'),state['inspection'])
             state['active_attempt'] = str(attempt)
             state['status'] = 'formatting'
             save_state(work, state)
@@ -321,7 +317,7 @@ def advance(work, state=None):
             result['decisions'], result['profile'] = state.get('decisions'), state.get('profile')
             atomic_json(attempt / 'format-report.json', result)
             unresolved = result.get('unresolved', result.get('unresolved_issues', result.get('issues', [])))
-            state['content_advice'] = [item for item in unresolved if item.get('code') == 'missing_identity_fields']
+            state['content_advice'] = result.get('content_advice',[]) + [item for item in unresolved if item.get('code') == 'missing_identity_fields']
             unresolved = [item for item in unresolved if item.get('code') != 'missing_identity_fields']
             if not candidate.is_file():
                 state['status'] = 'semantic_review_required'
@@ -337,11 +333,27 @@ def advance(work, state=None):
             state['candidate'] = str(candidate)
             state['unresolved'] = unresolved
             state['mapping'] = mapping_from(result)
+            from format_audit import Audit
+            # Inspect once BEFORE slow Office work so the host can batch
+            # structural corrections rather than render a known broken draft.
+            audit = Audit(candidate, mapping=state['mapping']).run()
+            path = attempt / 'static-audit.json'
+            atomic_json(path, audit)
+            state['static_audit'] = str(path)
+            static = [i for i in audit['issues'] if i.get('status') == 'auto_fixable'
+                      and i.get('severity') in ('warning','error')
+                      and not i.get('category','').startswith(('toc.','fields.'))]
+            state['unresolved'] += static
             state['status'] = 'formatted'
             save_state(work, state)
         if state.get('unresolved'):
             state['status'] = 'semantic_review_required'
             state['blocking_items'] = state['unresolved']
+            save_state(work, state)
+            return response(work, state)
+        if not state['capabilities'].get('dual_render_capable'):
+            state['status'] = 'capability_required'
+            state['blocking_items'] = [{'check': 'dual_engine', 'reason': 'Candidate and static audit prepared; both Word and WPS must pass actual rendering before delivery'}]
             save_state(work, state)
             return response(work, state)
         if 'final' not in state:
@@ -463,11 +475,36 @@ def verify_job(work, state=None):
 
 
 def response(work, state):
+    from job_guidance import repair_plan
+    # Keep stdout useful to small-context hosts. Full evidence stays in job.json
+    # and inspection.json; sampling here is transport, never review coverage.
+    def sample(items, limit, budget):
+        selected=[];used=0
+        for item in items:
+            size=len(json.dumps(item,ensure_ascii=False).encode('utf-8'))
+            if len(selected)<limit and used+size<=budget:
+                selected.append(item);used+=size
+        return selected
+    plan=repair_plan(state,work);remaining=16384;group_omitted={}
+    for group,items in list(plan['groups'].items()):
+        selected=sample(items,10,remaining)
+        remaining-=len(json.dumps(selected,ensure_ascii=False).encode('utf-8'))
+        plan['groups'][group]=selected;group_omitted[group]=len(items)-len(selected)
+    plan['sample_omitted_counts']=group_omitted
+    plan['complete_findings']={'file':str(Path(work)/'job.json'),
+        'json_pointers':['/verification/blocking_items','/blocking_items','/unresolved','/content_advice'],
+        'complete_review_required':True}
+    blockers=state.get('verification',{}).get('blocking_items',state.get('blocking_items',[]))
+    selected_blockers=sample(blockers,30,8192)
     return {'protocol_version': 10, 'ok': state['status'] != 'execution_failed',
             'operation_succeeded': state['status'] != 'execution_failed',
             'work_dir': str(work), 'status': state['status'], 'delivery_ready': state.get('delivery_ready', False),
             'candidate': state.get('final', state.get('candidate')), 'next': next_tasks(work, state),
-            'blocking_items': state.get('verification', {}).get('blocking_items', state.get('blocking_items', [])),
+            'repair_plan':plan,
+            'blocking_items':selected_blockers,'blocking_item_count':len(blockers),
+            'blocking_items_omitted':len(blockers)-len(selected_blockers),
+            'blocking_items_file':{'file':str(Path(work)/'job.json'),
+                'json_pointer':'/verification/blocking_items' if 'verification' in state else '/blocking_items'},
             'error': state.get('last_error')}
 
 
@@ -484,17 +521,44 @@ def next_tasks(work, state=None):
                           'saved_review': saved, 'pending_pages': pending, 'final_docx_sha256': state['final_sha256']})
         return tasks
     if state['status'] in ('semantic_review_required', 'correction_required'):
+        from job_guidance import repair_plan
         inspection = state.get('inspection') or {}
-        examples = {c['id']: {'role': c.get('role') or '<confirmed-role>', 'expected_text': c['text']}
-                    for c in inspection.get('candidates', [])[:3] if c.get('id') and 'text' in c}
+        decided=state.get('decisions') or {}
+        confirmed=set(decided.get('paragraphs',{}))|set(decided.get('preserve',{}))
+        candidates=inspection.get('candidates',[])
+        pending=[c for c in candidates if c.get('id') not in confirmed]
+        sample=[];used=0
+        for c in pending:
+            item={key:c[key] for key in ('id','role','text','reason') if key in c}
+            size=len(json.dumps(item,ensure_ascii=False).encode('utf-8'))
+            if len(sample)<30 and used+size<=16384:
+                sample.append(item);used+=size
+        summary={'source_sha256':state['source_sha256'],'counts':inspection.get('counts',{}),
+                 'candidate_count':len(candidates),'pending_candidate_count':len(pending),
+                 'candidates':sample,'sample_omitted_count':len(pending)-len(sample),
+                 'complete_review_required':True,'sample_is_not_full_coverage':True}
         return [{'kind': 'decisions', 'source_sha256': state['source_sha256'],
-                 'inspection': inspection,
-                 'decision_template': {'source_sha256': state['source_sha256'], 'paragraphs': examples},
-                 'issues': state.get('verification', {}).get('blocking_items', state.get('blocking_items', []))}]
+                 'inspection_file':str(Path(work)/'inspection.json'),
+                 'inspection':summary,
+                 'decision_template': {'source_sha256': state['source_sha256'], 'paragraphs': {}},
+                 'completion_policy': repair_plan(state, work)['completion_policy'],
+                 'decision_template_is_example_only': True,
+                 'existing_decisions': {'file': str(Path(work) / 'job.json'), 'json_pointer': '/decisions',
+                                        'merge_before_submit': True},
+                 'evidence': {'format_report': state.get('format_report'),
+                              'renders': state.get('renders', {}), 'reviews': state.get('reviews', {})},
+                 'submit_request': {'action': 'submit', 'work_dir': str(work), 'kind': 'decisions',
+                                    'decisions': '<absolute-path-to-reviewed-decisions.json>'},
+                 'issues_file':{'file':str(Path(work)/'job.json'),
+                    'json_pointer':'/verification/blocking_items' if 'verification' in state else '/blocking_items'}}]
     if state['status'] == 'execution_failed':
         return [{'kind': 'repair_environment_or_execution', 'reason': state.get('last_error')}]
     if state['status'] == 'capability_required':
         return [{'kind': 'capabilities', 'required_engines': list(ENGINES), 'actual': state.get('capabilities')}]
+    if state['status'] == 'no_progress':
+        return [{'kind': 'diagnose_repeated_failure',
+                 'issues': state.get('blocking_items', []),
+                 'instruction': 'Diagnose the unchanged failure; submit materially corrected source-bound decisions. Do not repeat resume or claim completion.'}]
     return []
 
 

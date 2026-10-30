@@ -300,6 +300,8 @@ class Audit:
                                "论文-附录代码": "appendix_code"})
         toc_region, abstract_region, ref_region, appendix = False, None, False, False
         cn_abstract_idx = None
+        first_abstract_index = next((i for i, p in enumerate(self.ps.values(), 1)
+                                     if clean(text(p)) in {"摘要", "中文摘要"}), None)
         for index, (pid, p) in enumerate(self.ps.items(), 1):
             s, sid = text(p).strip(), self.sid(p)
             style = self.styles.get(sid)
@@ -321,6 +323,8 @@ class Audit:
                 role, confidence, basis = sid[4:], "high", "已有 FIT 命名样式"
             elif name in names_to_roles:
                 role, confidence, basis = names_to_roles[name], "high", "已有学校语义命名样式（Word 可改写 styleId）"
+            elif (name or '').casefold() in {"title", "标题", "题目"} and first_abstract_index is not None and index < first_abstract_index:
+                role, confidence, basis = "cn_title", "high", "摘要前真实 Title 样式（按样式名称识别，非固定 styleId）"
             elif re.match(r"^(?:TOC|目录)\s*[123]$", name or "", re.I) or pid in self.toc_pids:
                 match_level = re.search(r"[123]$", name or "")
                 role = "toc" + (match_level.group() if match_level else "1")
@@ -411,7 +415,8 @@ class Audit:
             prior = list(self.ps.items())[:cn_abstract_idx-1]
             for _, p in reversed(prior):
                 s = text(p).strip()
-                if s and len(s) > 5 and len(s) < 160 and not re.match(r"^(姓名|题目|学院|专业|学号|年级|指导教师|时间)\s*[:：]?$", s):
+                disclosure = bool(re.search(r"(?:\s{2,}|\u3000).*(?:含模拟|含合成|模拟计算|合成数据|虚拟数据)", s))
+                if s and len(s) > 5 and len(s) < 160 and not disclosure and not re.match(r"^(姓名|题目|学院|专业|学号|年级|指导教师|时间)\s*[:：]?$", s):
                     self.title = s; break
 
     def check_coverage(self):
@@ -465,6 +470,11 @@ class Audit:
 
     def check_paragraphs(self):
         editable_roles = defaultdict(list)
+        from front_pagination import audit_front_pagination, expected_front_page_breaks
+        front_roles_by_node = {self.ps[pid]: value for pid, value in self.roles.items()}
+        front_breaks = expected_front_page_breaks(self.doc, front_roles_by_node)
+        invalid_front_breaks = {i['pid'] for i in audit_front_pagination(self)
+                                if i['code'] in {'front.abstract_page_boundary', 'front.contents_page_boundary', 'front.english_title_abstract_split'}}
         for pid, (raw_role, confidence, basis) in self.roles.items():
             role = raw_role if raw_role in self.spec["roles"] else ROLE_ALIASES.get(raw_role, raw_role)
             if role not in self.spec["roles"]: continue
@@ -546,6 +556,11 @@ class Audit:
                     t = text(r)
                     if not t.strip(): continue
                     rp = self.effective_r(p, r); differences = {}
+                    if role in {'chapter','section','subsection','subsubsection','cn_title','cn_abstract_heading','en_title','en_abstract_heading','toc_heading','reference_heading','conclusion_heading','acknowledgement_heading','appendix_heading'}:
+                        if pvalue(rp,'u',default='none') not in ('none','0','false','off'):
+                            differences['underline']={'actual':pvalue(rp,'u'),'expected':'none'}
+                        if any(pvalue(rp,n,default='0') not in ('0','false','off') for n in ('i','iCs','strike','dstrike')):
+                            differences['decoration']={'actual':{n:rp[n] for n in ('i','iCs','strike','dstrike') if n in rp},'expected':'upright heading without strike'}
                     for cat, pattern in (("east_asia", r"[\u3400-\u9fff]"), ("western", r"[A-Za-z0-9]")):
                         if re.search(pattern, t):
                             actual = self.font(rp, cat)
@@ -594,7 +609,9 @@ class Audit:
                     set(blockers) <= {"spacing"} and role in {"cn_keywords", "en_keywords", "table_caption", "figure_caption", "figure", "source"}
                     or has_math and set(blockers) <= {"spacing", "keepNext"}
                     or set(blockers) <= {"keepNext"} and (followed_object or role=="table_text" and any(a.tag==q("tbl") for a in p.iterancestors()))
-                    or set(blockers) <= {"pageBreakBefore"} and role in {"chapter", "cn_title", "en_title", "toc_heading", "reference_heading", "acknowledgement_heading", "appendix_heading", "conclusion_heading"})
+                    or set(blockers) <= {"pageBreakBefore"} and role in {"chapter", "cn_title", "reference_heading", "acknowledgement_heading", "appendix_heading", "conclusion_heading"}
+                    or set(blockers) <= {"pageBreakBefore"} and pid in front_breaks and confidence == 'high'
+                    and pid not in invalid_front_breaks and bool_prop(pp, 'pageBreakBefore') == front_breaks[pid])
                 self.add("info" if contextual_layout else "warning", "style.contextual_layout_override" if contextual_layout else "style.direct_format_override", self.locate(pid),
                          {"style_id": sid, "paragraph_properties": blockers,
                           "paragraph_mark_run_properties": mark_controls,
@@ -925,6 +942,28 @@ class Audit:
         relmap = {r.get("Id"): posixpath.normpath(posixpath.join("word", r.get("Target", "")))
                   for r in rels} if rels is not None else {}
         odd_even = enabled(self.settings.find(q("evenAndOddHeaders")))
+        # A body-styled disclosure on an abstract page is not a chapter start.
+        # Establish the boundary from confirmed top-level structural headings,
+        # then carry that section context through later text/table-only sections.
+        body_node = self.doc.find(q("body"))
+        confirmed = [int(pid[1:]) for pid, (role, confidence, _) in self.roles.items()
+                     if role == 'chapter' and confidence == 'high'
+                     and self.ps[pid].getparent() is body_node and pid not in self.toc_pids]
+        front_roles = {'cn_title', 'cn_abstract', 'cn_abstract_heading', 'cn_keywords',
+                       'en_title', 'en_abstract', 'en_abstract_heading', 'en_keywords',
+                       'toc1', 'toc2', 'toc3', 'toc_heading'}
+        front_positions = [int(pid[1:]) for pid, (role, _, _) in self.roles.items() if role in front_roles]
+        front_start = min(front_positions) if front_positions else None
+        if not confirmed:
+            confirmed = [int(pid[1:]) for pid, (role, confidence, _) in self.roles.items()
+                         if role in NUMBER_TARGETS and confidence == 'high'
+                         and self.ps[pid].getparent() is body_node and pid not in self.toc_pids]
+        if not confirmed:
+            last_front = max(front_positions or [0])
+            confirmed = [int(pid[1:]) for pid, (role, _, _) in self.roles.items()
+                         if role in {'body', 'body_math', 'reference_heading', 'appendix_heading', 'acknowledgement_heading'}
+                         and int(pid[1:]) > last_front and self.ps[pid].getparent() is body_node]
+        body_boundary = min(confirmed) if confirmed else None
         for i, sec in enumerate(self.doc.iter(q("sectPr")), 1):
             sid = f"s{i:03d}"
             parent = sec.getparent()
@@ -932,10 +971,15 @@ class Audit:
             end = int(self.pid[end_p][1:]) if end_p in self.pid else len(self.ps)
             start = prior_end + 1; prior_end = end
             roles = [self.roles[pid][0] for pid in list(self.ps)[start-1:end] if pid in self.roles]
-            body = any(r in NUMBER_TARGETS or r in {"body", "body_math", "reference_heading", "reference", "appendix_heading", "acknowledgement_heading"} for r in roles)
-            front = not body and any(r in {"cn_abstract", "cn_abstract_heading", "en_abstract", "en_abstract_heading", "toc1", "toc2", "toc3", "toc_heading"} for r in roles)
+            body = body_boundary is not None and end >= body_boundary
+            front = not body and front_start is not None and end >= front_start
             kind = "body" if body else "front" if front else "unpaged"
             loc = self.locate(sid=sid, paragraph_range=[f"p{start:06d}", f"p{end:06d}"], section_role=kind)
+            if body and start < body_boundary <= end and any(role in front_roles for role in roles):
+                self.add("error", "pagination.mixed_front_body_section", loc,
+                         {"body_boundary_paragraph": f"p{body_boundary:06d}", "front_roles_in_same_section": sorted(set(roles) & front_roles)},
+                         "前置罗马页码部分与正文起点分属独立节",
+                         "在已确认的正文首章前建立分节，不能把前置注记当正文或直接改整节为阿拉伯页码。")
             page_expected = self.spec["page"]
             page_actual = props(sec)
             differences = {}
@@ -960,6 +1004,7 @@ class Audit:
             pg = sec.find(q("pgNumType"))
             num_format = val(pg, "fmt", "decimal"); num_start = val(pg, "start")
             info = {"id": sid, "kind": kind, "start_paragraph": f"p{start:06d}", "end_paragraph": f"p{end:06d}",
+                    "confirmed_body_boundary": f"p{body_boundary:06d}" if body_boundary is not None else None,
                     "page_number_format": num_format, "page_number_start": num_start,
                     "explicit_references": explicit, "effective_references": refs,
                     "title_page_different": enabled(sec.find(q("titlePg")))}
@@ -1382,7 +1427,7 @@ class Audit:
             if truncated and len(authors) != 3:
                 problems.append("truncation_does_not_follow_three_listed_authors")
             area = reference.get("author_list", {}).get("expected_text", "")
-            if len(authors) > 1 and re.search(r"[，、;；&]|\band\b|和|与", area):
+            if reference.get('author_kind') != 'organization' and len(authors) > 1 and re.search(r"[，、;；&]|\band\b|和|与", area):
                 problems.append("author_separator_is_not_an_English_comma")
             if problems:
                 self.add("warning", "reference.author_listing_needs_review", self.locate(reference["pid"]),
@@ -1504,6 +1549,12 @@ class Audit:
         self.check_coverage()
         self.check_review_hygiene()
         self.check_structure(); self.check_paragraphs(); self.check_numbering()
+        from front_pagination import audit_front_pagination
+        for item in audit_front_pagination(self):
+            self.add(item['severity'], item['code'], self.locate(item['pid']),
+                     item['actual'], item['expected'],
+                     '保留原稿内容；按真实前置角色修复有效字体、分页并核对原生物理页。缺失英文题目须取已确认原文，不得猜写。',
+                     'requires_content_authorization' if item['kind'] == 'missing_fact' else 'requires_render_review')
         self.check_sections(); self.check_tables(); self.check_math(); self.check_citations()
         protection = self.settings.find(q("documentProtection"))
         if protection is not None and enabled_attr(protection, "enforcement"):

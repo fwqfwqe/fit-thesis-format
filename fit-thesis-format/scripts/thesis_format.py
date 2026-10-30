@@ -315,6 +315,9 @@ def make_styles(styles,mapping=None):
         if role=='equation': continue
         rp=child(st,'rPr'); child(rp,'rFonts',ascii=sp['western'],hAnsi=sp['western'],eastAsia=sp['east_asia'],cs=sp['western'])
         child(rp,'b',val='1' if sp.get('bold') else '0'); child(rp,'bCs',val='1' if sp.get('bold') else '0')
+        if role in HEADING_ROLES:
+            child(rp,'u',val='none');child(rp,'i',val='0');child(rp,'iCs',val='0')
+            child(rp,'strike',val='0');child(rp,'dstrike',val='0')
         child(rp,'color',val='000000'); child(rp,'sz',val=round(sp['size_pt']*2)); child(rp,'szCs',val=round(sp['size_pt']*2))
 
 def semantic_char_style(style_name, style_index, seen=None):
@@ -351,18 +354,19 @@ def format_p(p,role,style_index,numbering=None,warnings=None,label=''):
                 if name not in present:rp.append(el)
         remove_names(rp,RUN_CLEAR)
         if role in HEADING_ROLES:
-            remove_names(rp,{'b','bCs'})
+            remove_names(rp,{'b','bCs','u','i','iCs','strike','dstrike'})
     # Paragraph mark direct run formatting can override the gallery for newly typed text.
     mark=pp.find(q('rPr'))
     if mark is not None:
         remove_names(mark,RUN_CLEAR)
-        if role in HEADING_ROLES:remove_names(mark,{'b','bCs'})
+        if role in HEADING_ROLES:remove_names(mark,{'b','bCs','u','i','iCs','strike','dstrike'})
 
 def border(parent,kind,value,size=0):child(parent,kind,val=value,sz=size,space=0,color='000000')
 def format_table(t,setting):
     kind=setting['kind']; rows=t.findall('w:tr',NS); nh=setting.get('header_rows',1)
     if not isinstance(nh,int) or nh<0 or nh>len(rows):raise ValueError('Invalid header_rows')
     tp=ensure(t,'tblPr',True); remove_names(tp,{'tblBorders','jc','tblCellSpacing'})
+    if kind=='three-line':remove_names(tp,{'tblStyle','shd'})
     child(tp,'jc',val='center'); borders=child(tp,'tblBorders')
     for side in ('top','bottom','left','right','insideH','insideV'):
         if side in ('top','bottom'):border(borders,side,'single',12)
@@ -373,6 +377,7 @@ def format_table(t,setting):
         if ri<nh:child(rp,'tblHeader')
         for ci,cell in enumerate(row.findall('w:tc',NS)):
             cp=ensure(cell,'tcPr',True);remove_names(cp,{'tcBorders'})
+            if kind=='three-line':remove_names(cp,{'shd'})
             cb=child(cp,'tcBorders')
             cells=row.findall('w:tc',NS)
             for side in ('top','bottom','left','right'):
@@ -383,7 +388,7 @@ def format_table(t,setting):
                     val='single';sz=6
                 border(cb,side,val,sz)
     # Remove conditional border overrides while retaining all text/layout elsewhere.
-    for ex in t.findall('w:tr/w:tblPrEx',NS):remove_names(ex,{'tblBorders'})
+    for ex in t.findall('w:tr/w:tblPrEx',NS):remove_names(ex,{'tblBorders','shd'} if kind=='three-line' else {'tblBorders'})
 
 def apply_pages(root,mapping,warnings):
     if not mapping.get('page_setup',True):return

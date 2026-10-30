@@ -114,7 +114,7 @@ def safety_issue(p, is_reference=False):
             continue
         if child.tag != q('r'):
             return 'Paragraph contains a bookmark, field, link, equation, anchor or other complex structure'
-        if any(n.tag not in {q('rPr'), q('t')} for n in child):
+        if any(n.tag not in {q('rPr'), q('t'), q('lastRenderedPageBreak')} for n in child):
             return 'Run contains non-text content such as a field, break, tab, drawing or note marker'
         if len(child.findall(q('rPr'))) > 1:
             return 'Malformed run properties'
@@ -177,6 +177,8 @@ def sliced_run(r, start, end):
     clone = copy.deepcopy(r)
     for child in list(clone):
         if child.tag == q('t'):
+            clone.remove(child)
+        elif child.tag == q('lastRenderedPageBreak') and start>0:
             clone.remove(child)
     offset = 0
     for original in r.findall(q('t')):

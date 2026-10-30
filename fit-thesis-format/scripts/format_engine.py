@@ -30,7 +30,7 @@ A='http://schemas.openxmlformats.org/drawingml/2006/main'
 LAYOUT_BOOL={'page_break_before':'pageBreakBefore','keep_with_next':'keepNext','keep_lines':'keepLines'}
 LAYOUT_NUM={'before_pt':'before','after_pt':'after','line_min_pt':'line'}
 LEVELS=('chapter','section','subsection','subsubsection')
-PREFIX=re.compile(r'^(?:第[一二三四五六七八九十百\d]+章\s*|[一二三四五六七八九十百]+[、．.]\s*|[（(][一二三四五六七八九十百\d]+[）)]\s*|\d+(?:\.\d+){1,3}[.、．]?\s*|\d+[.、．]\s*)')
+PREFIX=re.compile(r'^(?:第[一二三四五六七八九十百\d]+章\s*|[一二三四五六七八九十百]+[、．.]\s*|[（(][一二三四五六七八九十百\d]+[）)]\s*|\d+(?:\.\d+){1,3}[.、．]?\s*|\d+[.、．]\s*|\d{1,3}[\s\u3000]+(?=\S))')
 LABEL=re.compile(r'^(公式)?\s*[（(]\s*(\d+)\s*[-－—.]\s*(\d+)\s*[）)]\s*$')
 
 def text(p): return ''.join(p.xpath('.//w:t/text()',namespaces=NS))
@@ -291,14 +291,31 @@ def inspect_document(source):
     cover_titles=[]
     for t,setting in table_settings.items():
         if setting['kind']=='cover':
+            title_row=False
             for row in t.findall(q('tr')):
                 cells=row.findall(q('tc'))
                 if cells and re.match(r'^题\s*目',text(cells[0]).strip()):
+                    title_row=True
                     cover_titles.extend(p for c in cells[1:] for p in c.findall('.//w:p',NS))
+                elif title_row and cells and not text(cells[0]).strip():
+                    cover_titles.extend(p for c in cells[1:] for p in c.findall('.//w:p',NS))
+                else:title_row=False
     cover_title_text=''.join(text(p).strip() for p in cover_titles)
     abstract_head=next((p for p in a.ps.values() if re.sub(r'\s+','',text(p)) in ('摘要','中文摘要')),None)
     preceding_title=abstract_head.getprevious() if abstract_head is not None else None
     while preceding_title is not None and preceding_title.tag==q('p') and not text(preceding_title).strip():preceding_title=preceding_title.getprevious()
+    # A genre/synthetic-data disclosure can sit between the title and 摘要.
+    # Prefer an exact cover-title match or the native Title style; never turn
+    # the nearest short line into a thesis title just because of its position.
+    before_abstract=[p for p in body if p.tag==q('p') and abstract_head is not None and body.index(p)<body.index(abstract_head) and text(p).strip()]
+    title_matches=[p for p in before_abstract if cover_title_text and re.sub(r'\s+','',text(p))==re.sub(r'\s+','',cover_title_text)]
+    if not title_matches:
+        title_matches=[p for p in before_abstract if re.fullmatch(r'(?:Title|标题|FIT_cn_title)',a.sid(p),re.I) or
+                       a.styles.get(a.sid(p)) is not None and a.styles[a.sid(p)].find(q('name')) is not None and
+                       re.fullmatch(r'(?:Title|标题|论文-中文题目)',a.styles[a.sid(p)].find(q('name')).get(q('val'),''),re.I)]
+    if len(title_matches)==1:preceding_title=title_matches[0]
+    elif preceding_title is not None and re.search(r'(?:含|采用|使用).*(?:模拟|合成)|论文类型|经管类研究论文',text(preceding_title)):
+        preceding_title=None
     english_head=next((p for p in a.ps.values() if text(p).strip().casefold()=='abstract'),None)
     english_title=english_head.getprevious() if english_head is not None else None
     while english_title is not None and english_title.tag==q('p') and not text(english_title).strip():english_title=english_title.getprevious()
@@ -339,7 +356,7 @@ def inspect_document(source):
         if p.getparent() is body and (p.findall('.//w:drawing',NS) or p.findall('.//w:pict',NS)) and not outside_object_text.strip():
             role='cover_info' if abstract_head is not None and body.index(p)<body.index(abstract_head) else 'figure'
         if role in ('body_math','table_math'):role='body' if role=='body_math' else 'table_text'
-        if p.getparent() is body and p.findall('.//m:oMath',NS) and (not value.strip() or LABEL.match(value.strip())):role='equation'
+        if p.getparent() is body and p.findall('.//m:oMath',NS) and (not value.strip() or LABEL.match(value.strip()) or re.fullmatch(r'(?:公式\s*)?[（(]\s*\d+\s*[）)]',value.strip())):role='equation'
         if value.strip()=='本科生毕业论文（设计）':role='cover_banner'
         if value.strip()=='（正本）':role='cover_copy'
         if '诚信承诺书' in value and len(value)<45:role='commitment_heading'
@@ -347,12 +364,20 @@ def inspect_document(source):
         if re.match(r'^表\s*\d+[.－—-]\d+(?:\s|$)',value.strip()) and len(value)<100:role='table_caption'
         if re.match(r'^附表\s*\d+\s',value.strip()) and len(value)<100:role='table_caption'
         if re.match(r'^图\s*\d+[.－—-]\d+(?:\s|$)',value.strip()) and len(value)<100:role='figure_caption'
+        if p.getparent() is body and len(value)<100 and not re.search(r'[。；]',value):
+            if re.match(r'^表\s*\d+\s+',value.strip()) and p.getnext() is not None and p.getnext().tag==q('tbl'):role='table_caption'
+            if re.match(r'^(?:图|Figure)\s*\d+\s+',value.strip(),re.I):
+                neighbors=(p.getprevious(),p.getnext())
+                if any(n is not None and (n.findall('.//w:drawing',NS) or n.findall('.//w:pict',NS)) for n in neighbors):role='figure_caption'
         if role in ('table_caption','figure_caption') and (len(value)>120 or re.search(r'[。；]',value)):role='body'
         if role in LEVELS and len(value)<60:
             if re.match(r'^[一二三四五六七八九十]+、',value):role='chapter'
             elif re.match(r'^（[一二三四五六七八九十]+）',value):role='section'
             elif re.match(r'^\d+[.．](?!\d)',value) and role!='chapter':role='subsection'
             elif re.match(r'^（\d+）',value):role='subsubsection'
+        # The third level of an OLD generated TOC is still disposable field
+        # cache, not unknown research prose. The rebuilt TOC has two levels.
+        if role=='toc3' and pid in a.toc_pids:role='toc2'
         if role in F.ROLES or role=='appendix_code':
             mapping['paragraphs'][pid]={'role':role,'expected_text':text(p)}
             if repaired:mapping['paragraphs'][pid]['layout_overrides']=repaired[1]
@@ -413,6 +438,68 @@ def _table(t,setting,width):
             pp=F.ensure(p,'pPr',True)
             # Keep panel headings with their following data, not entire tables.
             if kind!='cover' and (ri in panels or ri<setting.get('header_rows',1)):setprop(pp,'keepNext',val=1)
+    # Keep compact ordinary data tables together. Estimate from actual column
+    # widths, text, hard breaks and paragraph spacing; row count alone is unsafe.
+    # Explicit continuation segments retain their reviewed page boundaries.
+    rows=t.findall(q('tr'));previous=t.getprevious();following=t.getnext()
+    continued=bool(setting.get('continuation_breaks')) or any(
+        node is not None and node.tag==q('p') and text(node).strip()=='续前表'
+        for node in (previous,following))
+    risky=any(t.findall(path,NS) for path in (
+        './/w:vMerge','.//w:hMerge','.//w:gridSpan','.//w:tbl','.//w:drawing',
+        './/w:object','.//w:pict','.//w:fldChar','.//w:fldSimple','.//w:ins','.//w:del'))
+    compact=False
+    if not continued and not risky and 1<len(rows)<=24 and t.getparent() is not None and t.getparent().tag==q('body'):
+        import math
+        import unicodedata
+        spec=F.SPEC['defaults']|F.ROLES['table_text'];page=F.SPEC['page']
+        available=(page['height_twips']-page['top_twips']-page['bottom_twips'])/20
+        # Reserve a normal two-line caption; the final row must not pull notes.
+        estimate=40.0
+        for row in rows:
+            heights=[]
+            for cell in row.findall(q('tc')):
+                cell_width=int(cell.find('w:tcPr/w:tcW',NS).get(q('w')))
+                margin={}
+                for side in ('left','right','top','bottom'):
+                    found=cell.find('w:tcPr/w:tcMar/w:'+side,NS)
+                    if found is None:found=t.find('w:tblPr/w:tblCellMar/w:'+side,NS)
+                    margin[side]=int(found.get(q('w'),'0')) if found is not None else (108 if side in ('left','right') else 0)
+                cell_height=(margin['top']+margin['bottom'])/20
+                for p in cell.findall(q('p')):
+                    sizes=[float(n.get(q('val')))/2 for n in p.findall('.//w:rPr/w:sz',NS)]
+                    font=max([float(spec['size_pt'])]+sizes)
+                    pp=p.find(q('pPr'));spacing=pp.find(q('spacing')) if pp is not None else None
+                    before=float(spacing.get(q('before'),spec['before_pt']*20))/20 if spacing is not None else spec['before_pt']
+                    after=float(spacing.get(q('after'),spec['after_pt']*20))/20 if spacing is not None else spec['after_pt']
+                    line=float(spec['line_pt'])
+                    if spacing is not None and spacing.get(q('line')) is not None:
+                        raw=float(spacing.get(q('line')))
+                        line=max(line,raw/240*font*1.2 if spacing.get(q('lineRule'),'auto')=='auto' else raw/20)
+                    line=max(line,font*1.2)
+                    indent=p.find('w:pPr/w:ind',NS)
+                    inset=sum(max(0,int(indent.get(q(name),'0'))) for name in ('left','right','firstLine')) if indent is not None else 0
+                    usable=max(font,(cell_width-margin['left']-margin['right']-inset)/20)
+                    fragments=['']
+                    for element in p.iter():
+                        if element.tag==q('t'):fragments[-1]+=element.text or ''
+                        elif element.tag in (q('br'),q('cr')):fragments.append('')
+                        elif element.tag==q('tab'):fragments[-1]+='    '
+                    lines=0
+                    for fragment in fragments:
+                        units=sum(1 if unicodedata.east_asian_width(c) in ('W','F') else 0.65 for c in fragment)
+                        lines+=max(1,math.ceil(units*font/usable))
+                    cell_height+=before+after+lines*line*1.2
+                heights.append(cell_height)
+            estimate+=max(heights,default=0)
+        compact=estimate<=available*0.75
+    if not continued:
+        for ri,row in enumerate(rows):
+            for p in row.findall('./w:tc/w:p',NS):
+                # Explicit false on the last row bounds the chain and overrides
+                # inherited keepNext. Long tables only retain header/Panel ties.
+                keep=(compact and ri<len(rows)-1) or ((ri in panels or ri<setting.get('header_rows',1)) and ri<len(rows)-1)
+                setprop(F.ensure(p,'pPr',True),'keepNext',val=1 if keep else 0)
 
 def _numbering(parts,root,roles,ops):
     nr=F.parse(parts['word/numbering.xml']) if 'word/numbering.xml' in parts else E.Element(q('numbering'),nsmap={'w':W})
@@ -436,6 +523,14 @@ def _numbering(parts,root,roles,ops):
         role=roles.get(p)
         if role in restart_roles:
             active_nid=None;restart_heading=text(p)
+            if role=='conclusion_heading':
+                old=text(p);match=PREFIX.match(old)
+                if match:
+                    left=match.end()
+                    for t in p.findall('.//w:t',NS):
+                        value=t.text or '';take=min(left,len(value));t.text=value[take:];left-=take
+                        if not left:break
+                    ops.append({'kind':'heading_prefix','before':old,'after':text(p),'level':'unnumbered'})
         if role not in LEVELS:continue
         if role=='chapter':active_nid=nid;restart_heading=None
         elif active_nid is None:
@@ -515,10 +610,28 @@ def _toc(root,roles,ops,issues):
     toc_head=next((p for p,r in roles.items() if r=='toc_heading'),None)
     found=False
     instruction=' TOC \\t "论文-中文摘要标题,1,论文-英文摘要标题,1,论文-章标题,1,论文-一级节标题,2,论文-参考文献标题,1,论文-附录标题,1,论文-致谢标题,1,论文-结论标题,1" \\h \\z '
-    for e in root.findall('.//w:instrText',NS):
-        if re.match(r'\s*TOC\b',e.text or '',re.I):
-            old=e.text;found=True;e.text=instruction
-            if old!=instruction:ops.append({'kind':'toc_instruction','before':old,'after':instruction})
+    from field_cache_merge import spans,pspan
+    for toc in [f for f in spans(root) if f['kind']=='TOC']:
+        found=True;first,last=pspan(toc)
+        if first is None or first.getparent() is not last.getparent():
+            issues.append(issue('toc_container_ambiguous','document','目录域跨越不同容器，须核对原生结构。'));continue
+        parent=first.getparent();blocks=list(parent)[parent.index(first):parent.index(last)+1]
+        # Rebuild ONLY the native generated cache, never surrounding prose.
+        # Merely changing the instruction leaves stale third-level entries in
+        # some Office clients. A clean empty field forces full regeneration.
+        forbidden=F.PROTECTED_TAGS|{q(n) for n in ('ins','del','footnoteReference','endnoteReference','commentReference')}
+        if any(b.tag!=q('p') or any(e.tag in forbidden for e in b.iter()) for b in blocks):
+            issues.append(issue('toc_cache_protected','document','目录缓存内含受保护内容，保留并待核对。'));continue
+        sects=[s for b in blocks for s in b.findall('w:pPr/w:sectPr',NS)]
+        if len(sects)>1:
+            issues.append(issue('toc_cache_sections','document','目录缓存内有多处分节，保留并待核对。'));continue
+        p=E.Element(q('p'));F.format_p(p,'toc1',{},None,[]);field(p,instruction,'')
+        if sects:F.ensure(p,'pPr',True).append(copy.deepcopy(sects[0]))
+        at=parent.index(first)
+        before=''.join(text(b) for b in blocks)
+        for b in blocks:parent.remove(b);roles.pop(b,None)
+        parent.insert(at,p);roles[p]='toc1'
+        ops.append({'kind':'toc_cache_rebuild','before':before,'after':'','instruction':instruction})
     if not found and toc_head is not None:
         # Do not delete manually typed TOC entries until their region has been
         # explicitly confirmed, otherwise duplicated entries would mislead.
@@ -594,7 +707,7 @@ def _replace_plain_span(p,start,end,new_nodes):
     for r in runs:
         value=''.join(r.xpath('./w:t/text()',namespaces=NS));offsets.append((r,offset,offset+len(value),value));offset+=len(value)
     touched=[x for x in offsets if x[2]>start and x[1]<end or start==end and x[1]<=start<=x[2]]
-    if not touched or any(any(c.tag not in {q('rPr'),q('t')} for c in r) for r,a,b,v in touched):raise ValueError('Requested text span intersects non-text run')
+    if not touched or any(any(c.tag not in {q('rPr'),q('t'),q('lastRenderedPageBreak')} for c in r) for r,a,b,v in touched):raise ValueError('Requested text span intersects non-text run')
     inserted=False
     for r,a,b,v in touched:
         parent=r.getparent();at=parent.index(r);frags=[]
@@ -836,7 +949,12 @@ def _import_front_styles(styles,template):
         original=index.get(sid)
         if original is None:raise ValueError('School template references a missing style: '+sid)
         node=copy.deepcopy(original);node.set(q('styleId'),target);node.attrib.pop(q('default'),None)
-        F.remove_names(node,{'autoRedefine'})
+        F.remove_names(node,{'autoRedefine','semiHidden','locked','qFormat','unhideWhenUsed'})
+        at=next((i for i,el in enumerate(node) if el.tag in {q(n) for n in ('pPr','rPr','tblPr','trPr','tcPr')}),len(node))
+        for offset,name in enumerate(('unhideWhenUsed','qFormat')):
+            visible=E.Element(q(name))
+            if name=='unhideWhenUsed':visible.set(q('val'),'1')
+            node.insert(at+offset,visible)
         name=node.find(q('name'))
         if name is not None:name.set(q('val'),'FIT School Form '+name.get(q('val'),sid))
         for dep in node:
@@ -886,6 +1004,126 @@ def _front_label_padding(table):
         F.remove_names(cp,{'tcMar'});m=F.child(cp,'tcMar')
         for side in ('left','right'):F.child(m,side,w=0,type='dxa')
 
+def _front_role_font(p,role):
+    """Apply the numeric school role without copying a blank template run."""
+    sp=F.resolved_style_specs()[role]
+    def apply(rp):
+        for name in ('rFonts','sz','szCs','b','bCs','color','highlight','shd'):
+            F.remove_names(rp,{name})
+        F.child(rp,'rFonts',ascii=sp['western'],hAnsi=sp['western'],eastAsia=sp['east_asia'],cs=sp['western'])
+        for name in ('sz','szCs'):F.child(rp,name,val=round(sp['size_pt']*2))
+        for name in ('b','bCs'):F.child(rp,name,val='1' if sp.get('bold') else '0')
+        F.child(rp,'color',val='000000')
+    apply(F.ensure(F.ensure(p,'pPr',True),'rPr'))
+    for run in p.findall(q('r')):
+        # Electronic signatures, fields, comment markers and other objects are
+        # retained; this operation owns only literal form text typography.
+        if run.findall(q('t')):apply(F.ensure(run,'rPr',True))
+
+def _front_semantic_properties(p,role):
+    sp=F.resolved_style_specs()[role];pp=F.ensure(p,'pPr',True)
+    for name in ('spacing','ind','jc','snapToGrid','contextualSpacing'):
+        F.remove_names(pp,{name})
+    setprop(pp,'spacing',before=round(sp['before_pt']*20),after=round(sp['after_pt']*20),
+            beforeAutospacing=0,afterAutospacing=0,beforeLines=0,afterLines=0,
+            line=round(sp['line_pt']*20),lineRule=sp['line_rule'])
+    setprop(pp,'ind',left=0,right=0,leftChars=0,rightChars=0,firstLine=0,
+            firstLineChars=round(sp['indent_chars']*100))
+    setprop(pp,'jc',val=sp['align']);setprop(pp,'snapToGrid',val=0)
+    setprop(pp,'contextualSpacing',val=0)
+    # Keep the paragraph mark last so new text and Word's property parser use
+    # the same font as the existing visible text.
+    mark=pp.find(q('rPr'))
+    if mark is not None:pp.remove(mark);pp.append(mark)
+
+def _front_semantics(actual,roles=None,edits=None):
+    """Retain the form grid; typography and signatures follow school roles."""
+    assigned=[]
+    def assign(p,role,paragraph=False):
+        _front_role_font(p,role)
+        if paragraph:_front_semantic_properties(p,role)
+        if roles is not None:roles[p]=role
+        assigned.append((p,role))
+    assign(actual[2],'cover_banner');assign(actual[3],'cover_copy')
+    for ri,row in enumerate(actual[6].findall(q('tr'))):
+        for ci,cell in enumerate(row.findall(q('tc'))):
+            role='cover_title' if ri<2 and ci>0 else 'cover_info'
+            for p in cell.findall('.//w:p',NS):assign(p,role)
+    assign(actual[9],'commitment_heading',True)
+    for p in actual[10].findall('.//w:p',NS):
+        value=text(p);s=value.strip(' \u3000\t')
+        if s in ('学生承诺','指导教师承诺'):
+            assign(p,'commitment_label',True)
+        elif s.startswith('我承诺'):
+            assign(p,'commitment_body',True)
+        elif '签名' in s or re.fullmatch(r'(?:\d{4})?年(?:\d{1,2})?月(?:\d{1,2})?日',re.sub(r'\s+','',s)):
+            # The native example positions signatures with 41/55 spaces. Their
+            # width changes with fonts, so use actual right alignment instead.
+            nodes=p.findall('.//w:t',NS);remaining=True
+            for node in nodes:
+                if not remaining:break
+                old=node.text or '';node.text=old.lstrip(' \u3000\t')
+                remaining=not bool(node.text)
+            if text(p)!=value and edits is not None:
+                edits.append({'kind':'front_signature_padding','before':value,'after':text(p)})
+            assign(p,'commitment_signature',True)
+        elif s:
+            assign(p,'commitment_info')
+    return assigned
+
+def _front_title_metrics(size_pt):
+    """Deterministic capacity estimate; native rendering remains the proof."""
+    import unicodedata
+    def measure(value):
+        return sum((1 if unicodedata.east_asian_width(c) in ('W','F') else .55)*size_pt*20 for c in value)
+    return measure,'unicode_width_estimate_requires_native_review'
+
+def _front_wrap_title(cover,edits):
+    """Use the existing two ruled cells; never create a one-character orphan."""
+    rows=cover.findall(q('tr'));cells=[row.findall(q('tc'))[1] for row in rows[:2]]
+    if len(cells)!=2:return
+    ps=[cell.find(q('p')) for cell in cells]
+    safe={q(n) for n in ('p','pPr','r','rPr','t')}
+    if any(p is None or any(e.tag not in safe and not any(a.tag in (q('pPr'),q('rPr')) for a in e.iterancestors()) for e in p.iter()) for p in ps):
+        edits.append({'kind':'front_title_wrap_review','reason':'Title cell contains protected or non-text objects; retained intact.'})
+        return
+    full=''.join(text(p) for p in ps).strip(' \u3000')
+    if not full:return
+    width=cells[0].find('w:tcPr/w:tcW',NS)
+    if width is None or width.get(q('type'))!='dxa':return
+    available=int(width.get(q('w')))
+    table_mar=cover.find('w:tblPr/w:tblCellMar',NS)
+    local_mar=cells[0].find('w:tcPr/w:tcMar',NS)
+    for side in ('left','right'):
+        margin=local_mar.find(q(side)) if local_mar is not None else None
+        if margin is None and table_mar is not None:margin=table_mar.find(q(side))
+        if margin is not None:available-=int(margin.get(q('w'),'0'))
+    measure,method=_front_title_metrics(F.resolved_style_specs()['cover_title']['size_pt'])
+    target=[full,'']
+    if measure(full)>available:
+        choices=[]
+        for split in range(1,len(full)):
+            first,second=full[:split],full[split:]
+            if len(first.strip())<2 or len(second.strip())<2:continue
+            if first[-1].isascii() and first[-1].isalnum() and second[0].isascii() and second[0].isalnum():continue
+            if second[0] in '，。；：！？、）》】”’':continue
+            a,b=measure(first),measure(second)
+            if max(a,b)<=available:choices.append((abs(a-b),max(a,b),split))
+        if not choices:
+            edits.append({'kind':'front_title_wrap_review','reason':'Title exceeds two ruled lines at the required 16pt; no text or font reduction applied.','measurement':method})
+            return
+        split=min(choices)[2];target=[full[:split],full[split:]]
+    before=[text(p) for p in ps]
+    if before==target:return
+    for p,value in zip(ps,target):
+        texts=p.findall('.//w:t',NS)
+        if texts:
+            texts[0].text=value;texts[0].set('{http://www.w3.org/XML/1998/namespace}space','preserve')
+            for node in texts[1:]:node.text=''
+        elif value:plain_run(p,value)
+    if ''.join(target)!=full:raise ValueError('Front title wrapping changed title characters')
+    edits.append({'kind':'front_title_wrap','before':before,'after':target,'title':full,'measurement':method,'available_twips':available,'size_pt':16})
+
 def restore_school_front_geometry(parts,root,styles,roles=None,ops=None,fill_title=False):
     """Restore the recognized school form's properties without rebuilding prose.
 
@@ -928,11 +1166,12 @@ def restore_school_front_geometry(parts,root,styles,roles=None,ops=None,fill_tit
                 if re.fullmatch(r'\s*年月日\s*',text(p)):
                     before=text(p)
                     for t in p.findall('.//w:t',NS):t.text=''
-                    run=plain_run(p,'                                         年    月    日')
+                    run=plain_run(p,'年    月    日')
                     if exemplar is not None:
                         prop=copy.deepcopy(exemplar);F.remove_names(prop,{'highlight','shd','rStyle'});run.insert(0,prop)
                     edits.append({'kind':'front_blank_date','before':before,'after':text(p)})
     _front_label_padding(actual[6])
+    _front_wrap_title(actual[6],edits)
     title=''.join(text(row.findall(q('tc'))[1]).strip() for row in actual[6].findall(q('tr'))[:2])
     if fill_title and title:
         target=actual[10].findall(q('tr'))[2].findall(q('tc'))[1].find(q('p'))
@@ -941,6 +1180,18 @@ def restore_school_front_geometry(parts,root,styles,roles=None,ops=None,fill_tit
             if sample is not None:
                 prop=copy.deepcopy(sample);F.remove_names(prop,{'highlight','shd','rStyle'});run.insert(0,prop)
             edits.append({'kind':'front_title_fill','before':before,'after':text(target),'source':'cover_title'})
+    english=[]
+    if roles is not None:
+        english=[p for p,role in roles.items() if role=='en_title' and text(p).strip()]
+    elif fill_title:
+        english=[p for p in root.find(q('body')) if p.tag==q('p') and p.find('w:pPr/w:pStyle',NS) is not None
+                 and p.find('w:pPr/w:pStyle',NS).get(q('val'))=='FIT_en_title' and text(p).strip()]
+    if len(english)==1:
+        target=actual[10].findall(q('tr'))[3].findall(q('tc'))[1].find(q('p'))
+        if text(target).strip()=='外文：':
+            before=text(target);plain_run(target,text(english[0]).strip())
+            edits.append({'kind':'front_title_fill','before':before,'after':text(target),'source':'en_title'})
+    _front_semantics(actual,roles,edits)
     # Formatting differences are independently checked against this exact form;
     # any optional text fills are reported as explicit front-matter edits.
     record={'restored':True,'template_sha256':F.sha(template[DOC]),'edits':edits}
@@ -954,6 +1205,29 @@ def front_template_geometry_issues(root,styles=None):
     _,actual,wanted=pair;errors=[]
     wanted=[copy.deepcopy(n) for n in wanted]
     _front_label_padding(wanted[6])
+    _front_semantics(wanted)
+    # The template's first visible run is not an authority for every run in a
+    # field. Verify the explicit semantic font as well as its table geometry.
+    canonical=[copy.deepcopy(n) for n in actual]
+    assigned=dict(_front_semantics(canonical))
+    aps=[p for n in actual for p in ([n] if n.tag==q('p') else n.findall('.//w:p',NS))]
+    cps=[p for n in canonical for p in ([n] if n.tag==q('p') else n.findall('.//w:p',NS))]
+    for p,expected in zip(aps,cps):
+        role=assigned.get(expected)
+        if role is None:continue
+        spec=F.resolved_style_specs()[role]
+        expected_size=str(round(spec['size_pt']*2))
+        expected_bold='1' if spec.get('bold') else '0'
+        for run in p.findall(q('r')):
+            if not text(run):continue
+            rp=run.find(q('rPr'));fonts=rp.find(q('rFonts')) if rp is not None else None
+            if (rp is None or fonts is None or
+                any(fonts.get(q(k))!=v for k,v in (('ascii',spec['western']),('hAnsi',spec['western']),('eastAsia',spec['east_asia']))) or
+                any(rp.find(q(k)) is None or rp.find(q(k)).get(q('val'))!=expected_size for k in ('sz','szCs')) or
+                any(rp.find(q(k)) is None or rp.find(q(k)).get(q('val'))!=expected_bold for k in ('b','bCs'))):
+                errors.append('front '+role+' typography differs: '+text(p)[:30]);break
+        if role=='commitment_signature' and text(p)!=text(p).lstrip(' \u3000\t'):
+            errors.append('front signature still relies on leading whitespace: '+text(p).strip()[:30])
     if styles is not None:
         base=styles.find('w:style[@w:styleId="FITFrontTpl_1"]/w:pPr/w:spacing',NS)
         if base is None or any(base.get(q(k))!=v for k,v in (('before','0'),('after','0'),('line','240'),('lineRule','auto'))):
@@ -1121,6 +1395,10 @@ def format_document(source,output,decisions=None,profile=None):
         if not isinstance(item,dict) or len(item.get('reason',''))<6 or item.get('expected_text')!=original_text[pid]:raise ValueError('Invalid source-bound preserve decision')
         unresolved=[i for i in unresolved if i['location']!=pid]
     operations=list(narrative_ops);style_index={s.get(q('styleId')):copy.deepcopy(s) for s in styles.findall(q('style'))}
+    if decisions.get('year_insertions'):
+        if decisions.get('narrative_map'):raise ValueError('Use either year_insertions or narrative_map in this source-bound stage')
+        from narrative_years import apply as apply_years
+        apply_years(parts,root,roles,decisions['year_insertions'],_replace_plain_span,operations,unresolved)
     transcriptions=decisions.get('formula_transcriptions',{})
     if not isinstance(transcriptions,dict):raise ValueError('formula_transcriptions must be a paragraph map')
     for pid,item in transcriptions.items():
@@ -1156,6 +1434,8 @@ def format_document(source,output,decisions=None,profile=None):
         parts[name]=F.xml(sr)
     F.apply_pages(root,{},warnings)
     if profile.get('strict_text',False) is not True:
+        from academic_labels import apply as apply_academic_labels
+        apply_academic_labels(root,roles,_replace_plain_span,operations,unresolved,{p:k for k,p in ps.items()})
         for pid,p in list(ps.items()):
             if p.getparent() is not root.find(q('body')):continue
             if p in code_nodes:continue
@@ -1208,6 +1488,8 @@ def format_document(source,output,decisions=None,profile=None):
     _fit_pictures(root,width,operations)
     _split_continuations(continuation_plans,roles,table_options_by_node,width,operations)
     _protect_code_styles(styles,code_nodes)
+    from front_pagination import apply_front_pagination
+    front_result=apply_front_pagination(root,roles,styles,operations)
     _apply_layout_repairs(root,styles,roles,bound_repairs,operations)
     for t in root.findall('.//w:t',NS):
         if t.text=='':t.text=None
@@ -1256,7 +1538,7 @@ def format_document(source,output,decisions=None,profile=None):
     operations.insert(0,{'kind':'format_roles','paragraph_count':len(mapping['paragraphs']),'tables':mapping['tables'],'source_mapping':mapping})
     return {'schema_version':1,'source':str(source),'output':str(output),'source_sha256':inspected['source_sha256'],
             'output_sha256':F.sha(output.read_bytes()),'operations':operations,'source_mapping':mapping,'decisions':decisions,'profile':profile,'final_mapping':final_map,
-            'unresolved_issues':unresolved,'warnings':warnings,'delivery_ready':False,
+            'unresolved_issues':unresolved,'warnings':warnings,'content_advice':front_result.get('missing_facts',[]),'delivery_ready':False,
             'pending':['controlled_field_refresh','Word_and_WPS_render','all_pages_review']}
 
 def verify_format(source,final,decisions=None,profile=None):

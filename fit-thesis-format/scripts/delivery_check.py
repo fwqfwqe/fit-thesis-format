@@ -199,9 +199,24 @@ def check_render(final, render_path, pages_path, review_path, allow_incomplete=F
                 raise ValueError(f'Page {number} table {index} has not passed repeated-header/row-integrity review')
         if not isinstance(inspected.get('notes'), str) or not inspected['notes'].strip():
             raise ValueError(f'Page {number} lacks concrete observations')
+    front_pages={'applicable':False,'passed':True,'issues':[]}
+    # New outputs carry native anchors for both abstract ends and TOC start.
+    # Use the renderer's real physical pages, never a guessed paragraph offset.
+    native_pages=rendering.get('bookmark_pages',{})
+    if any(name.startswith('FITFront_') for name in native_pages):
+        import thesis_format as F
+        from format_engine import inspect_document
+        from front_pagination import front_page_anchors,audit_front_pages
+        root=F.parse(F.package(final)['word/document.xml']);ps,_=F.indexed(root)
+        mapping=inspect_document(final)['map']
+        roles={ps[k]:v['role'] for k,v in mapping['paragraphs'].items() if k in ps}
+        positioned={a['pid']:native_pages[a['name']].get('physical_page') for a in front_page_anchors(root,roles) if a['name'] in native_pages}
+        problems=audit_front_pages(root,roles,positioned)
+        front_pages={'applicable':True,'passed':not problems,'issues':problems,'physical_pages':positioned}
     return {'engine': rendering['engine'], 'engine_version': rendering['engine_version'],
             'page_count': count, 'pdf_sha256': pdf_hash, 'reviewer': review['reviewer'],
-            'all_pages_passed': not pending_pages and not failed_pages,
+            'all_pages_passed': not pending_pages and not failed_pages and front_pages['passed'],
+            'front_pages':front_pages,
             'pending_pages': pending_pages, 'failed_pages': failed_pages,
             'native_math_count': rendering.get('native_math_count', 0),
             'table_spans_verified': True,
