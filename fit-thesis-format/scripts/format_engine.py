@@ -308,6 +308,10 @@ def inspect_document(source):
         repaired=_read_repair_style(a.styles.get(a.sid(p)))
         if repaired:role=repaired[0]
         if a.sid(p).startswith('FITCode_'):role='appendix_code'
+        # Template spacer paragraphs carry real cover-page geometry. Keep their
+        # identity on a repeat run instead of treating them as removable body
+        # whitespace after the form's isolated styles have been imported.
+        if a.sid(p).startswith('FITFrontTpl_') and p.getparent() is body and not value.strip():role='cover_info'
         if any(x.tag in F.PROTECTED_TAGS for x in p.iterancestors()):
             obj=next(x for x in p.iterancestors() if x.tag in F.PROTECTED_TAGS)
             mapping['preserve'][pid]={'expected_text':text(p),'reason':'图形或嵌入对象内部文字保留原对象，仍须逐页视觉复核','object_sha256':F.sha(F.xml(obj)),'pending_visual':True}
@@ -379,6 +383,9 @@ def inspect_document(source):
 def _table(t,setting,width):
     kind=setting['kind']
     if kind not in ('three-line','complex','panel','cover'):return
+    # The school cover is a fixed-width form, not a page-width data table.
+    # Its ruled fields and merged date cells use the template's own grid.
+    if kind=='cover':return
     panels=setting.get('panel_rows',[i for i,r in enumerate(t.findall(q('tr'))) if re.search(r'Panel\s+[A-Z]',text(r),re.I)])
     if kind!='cover':F.format_table(t,{**setting,'kind':'three-line' if kind=='panel' else kind})
     tp=F.ensure(t,'tblPr',True);setprop(tp,'tblW',w=width,type='dxa');setprop(tp,'tblLayout',type='fixed')
@@ -798,6 +805,182 @@ def _commitment_blocks(root,roles,ops):
         ops.append({'kind':'commitment_split','before':before,'after':after,'paragraphs':[text(x) for x in newps]})
 
 
+def _front_template():
+    parts=F.package(Path(__file__).resolve().parent.parent/'assets/fit-economics-management-template-clean.docx')
+    return parts,F.parse(parts[DOC]).find(q('body'))
+
+def _front_pairs(root):
+    """Recognize the complete native template scaffold before touching it."""
+    template,tb=_front_template();actual=list(root.find(q('body')))[:14];wanted=list(tb)[:14]
+    if len(actual)!=14 or [x.tag for x in actual]!=[x.tag for x in wanted]:return None
+    if text(actual[2])!='本科生毕业论文（设计）' or '诚信承诺书' not in text(actual[9]):return None
+    for n in (6,10):
+        rows=actual[n].findall(q('tr'));refrows=wanted[n].findall(q('tr'))
+        if len(rows)!=len(refrows):return None
+        for row,refrow in zip(rows,refrows):
+            cells=row.findall(q('tc'));refcells=refrow.findall(q('tc'))
+            if len(cells)!=len(refcells) or [len(c.findall(q('p'))) for c in cells]!=[len(c.findall(q('p'))) for c in refcells]:return None
+    # These fixed labels distinguish the front form from arbitrary user tables.
+    if [text(r.findall(q('tc'))[0]).strip() for r in actual[6].findall(q('tr'))]!=[text(r.findall(q('tc'))[0]).strip() for r in wanted[6].findall(q('tr'))]:return None
+    return template,actual,wanted
+
+def _import_front_styles(styles,template):
+    """Isolate template defaults so the thesis Normal style cannot stretch forms."""
+    source=F.parse(template['word/styles.xml']);index={x.get(q('styleId')):x for x in source.findall(q('style'))}
+    default=next((sid for sid,x in index.items() if x.get(q('type'))=='paragraph' and x.get(q('default'))=='1'),None)
+    imported=set()
+    def clone(sid):
+        target='FITFrontTpl_'+sid
+        if sid in imported:return target
+        imported.add(sid)
+        original=index.get(sid)
+        if original is None:raise ValueError('School template references a missing style: '+sid)
+        node=copy.deepcopy(original);node.set(q('styleId'),target);node.attrib.pop(q('default'),None)
+        F.remove_names(node,{'autoRedefine'})
+        name=node.find(q('name'))
+        if name is not None:name.set(q('val'),'FIT School Form '+name.get(q('val'),sid))
+        for dep in node:
+            if dep.tag in (q('basedOn'),q('next'),q('link')) and dep.get(q('val')) in index:dep.set(q('val'),clone(dep.get(q('val'))))
+        if sid==default:
+            for kind in ('pPr','rPr'):
+                defaults=source.find('w:docDefaults/w:'+kind+'Default/w:'+kind,NS)
+                dest=F.ensure(node,kind)
+                if defaults is not None:
+                    for prop in defaults:
+                        if dest.find(prop.tag) is None:dest.append(copy.deepcopy(prop))
+            # A missing template default means Word's zero paragraph spacing /
+            # single line, not permission to inherit the thesis docDefaults.
+            # In particular, an after=200 body default adds 10pt to every form
+            # paragraph and can spill the pledge's trailing section to a page.
+            spacing=F.ensure(F.ensure(node,'pPr'),'spacing')
+            for attr,value in (('before','0'),('after','0'),('beforeAutospacing','0'),('afterAutospacing','0'),('line','240'),('lineRule','auto')):
+                if spacing.get(q(attr)) is None:spacing.set(q(attr),value)
+            ind=F.ensure(F.ensure(node,'pPr'),'ind')
+            for attr in ('left','right','firstLine','firstLineChars','leftChars','rightChars','hanging','hangingChars'):
+                if ind.get(q(attr)) is None:ind.set(q(attr),'0')
+            for attr in ('beforeLines','afterLines'):
+                if spacing.get(q(attr)) is None:spacing.set(q(attr),'0')
+            for name in ('keepNext','keepLines','pageBreakBefore','contextualSpacing','mirrorIndents'):
+                if node.find('w:pPr/w:'+name,NS) is None:F.child(node.find(q('pPr')),name,val=0)
+            fonts=F.ensure(F.ensure(node,'rPr'),'rFonts')
+            for attr in list(fonts.attrib):
+                if 'theme' in attr.lower():del fonts.attrib[attr]
+            for attr,value in (('ascii','Times New Roman'),('hAnsi','Times New Roman'),('cs','Times New Roman'),('eastAsia','宋体')):fonts.set(q(attr),value)
+        old=styles.find('w:style[@w:styleId="'+target+'"]',NS)
+        if old is not None:styles.remove(old)
+        styles.append(node)
+        return target
+    return clone,default
+
+def _replace_property(node,ref,name):
+    old=node.find(q(name));position=list(node).index(old) if old is not None else 0
+    if old is not None:node.remove(old)
+    wanted=ref.find(q(name))
+    if wanted is not None:node.insert(position,copy.deepcopy(wanted))
+
+def _front_label_padding(table):
+    # Three full-width label characters at 16pt must fit the template's
+    # 1071-twip label column. Keep the grid and remove only label-cell padding.
+    for row in table.findall(q('tr')):
+        cp=F.ensure(row.findall(q('tc'))[0],'tcPr',True)
+        F.remove_names(cp,{'tcMar'});m=F.child(cp,'tcMar')
+        for side in ('left','right'):F.child(m,side,w=0,type='dxa')
+
+def restore_school_front_geometry(parts,root,styles,roles=None,ops=None,fill_title=False):
+    """Restore the recognized school form's properties without rebuilding prose.
+
+    Content, drawings and section boundaries stay in their original nodes. The
+    same operation serves the formatter and a bounded repair of an old v10 file.
+    """
+    pair=_front_pairs(root)
+    if pair is None:return {'restored':False,'reason':'front scaffold does not match the school form'}
+    template,actual,wanted=pair;clone,default=_import_front_styles(styles,template)
+    edits=[];exemplars={}
+    for node,refnode in zip(actual,wanted):
+        if node.tag==q('tbl'):
+            for name in ('tblPr','tblGrid'):_replace_property(node,refnode,name)
+            ts=node.find('w:tblPr/w:tblStyle',NS)
+            if ts is not None:ts.set(q('val'),clone(ts.get(q('val'))))
+            for row,refrow in zip(node.findall(q('tr')),refnode.findall(q('tr'))):
+                _replace_property(row,refrow,'trPr')
+                for cell,refcell in zip(row.findall(q('tc')),refrow.findall(q('tc'))):_replace_property(cell,refcell,'tcPr')
+        ps=[node] if node.tag==q('p') else node.findall('.//w:p',NS)
+        rps=[refnode] if refnode.tag==q('p') else refnode.findall('.//w:p',NS)
+        for p,rp in zip(ps,rps):
+            oldsec=p.find('w:pPr/w:sectPr',NS);oldsec=copy.deepcopy(oldsec) if oldsec is not None else None
+            _replace_property(p,rp,'pPr');pp=F.ensure(p,'pPr',True)
+            F.remove_names(pp,{'sectPr'})
+            sid=pp.find(q('pStyle'));source_sid=sid.get(q('val')) if sid is not None else default
+            if sid is None:sid=F.child(pp,'pStyle')
+            sid.set(q('val'),clone(source_sid))
+            pp.remove(sid);pp.insert(0,sid)
+            if oldsec is not None:pp.append(oldsec)
+            exemplar=rp.find('w:r/w:rPr',NS)
+            if exemplar is None:exemplar=rp.find('w:pPr/w:rPr',NS)
+            exemplars[p]=exemplar
+            mark=pp.find(q('rPr'))
+            if mark is not None:F.remove_names(mark,{'highlight','shd','rStyle'})
+            for run in p.findall(q('r')):
+                F.remove_names(run,{'rPr'})
+                if exemplar is not None:
+                    prop=copy.deepcopy(exemplar);F.remove_names(prop,{'highlight','shd','rStyle'});run.insert(0,prop)
+            if not text(p).strip(' \u3000') or re.fullmatch(r'\s*年月日\s*',text(p)):
+                if re.fullmatch(r'\s*年月日\s*',text(p)):
+                    before=text(p)
+                    for t in p.findall('.//w:t',NS):t.text=''
+                    run=plain_run(p,'                                         年    月    日')
+                    if exemplar is not None:
+                        prop=copy.deepcopy(exemplar);F.remove_names(prop,{'highlight','shd','rStyle'});run.insert(0,prop)
+                    edits.append({'kind':'front_blank_date','before':before,'after':text(p)})
+    _front_label_padding(actual[6])
+    title=''.join(text(row.findall(q('tc'))[1]).strip() for row in actual[6].findall(q('tr'))[:2])
+    if fill_title and title:
+        target=actual[10].findall(q('tr'))[2].findall(q('tc'))[1].find(q('p'))
+        if text(target).strip()=='中文：':
+            before=text(target);run=plain_run(target,title);sample=exemplars.get(target)
+            if sample is not None:
+                prop=copy.deepcopy(sample);F.remove_names(prop,{'highlight','shd','rStyle'});run.insert(0,prop)
+            edits.append({'kind':'front_title_fill','before':before,'after':text(target),'source':'cover_title'})
+    # Formatting differences are independently checked against this exact form;
+    # any optional text fills are reported as explicit front-matter edits.
+    record={'restored':True,'template_sha256':F.sha(template[DOC]),'edits':edits}
+    if ops is not None:ops.append({'kind':'school_front_geometry',**record})
+    return record
+
+def front_template_geometry_issues(root,styles=None):
+    """Lightweight checks for Audit: widths, row/cell grids and native spacing."""
+    pair=_front_pairs(root)
+    if pair is None:return ['school form scaffold differs from the template']
+    _,actual,wanted=pair;errors=[]
+    wanted=[copy.deepcopy(n) for n in wanted]
+    _front_label_padding(wanted[6])
+    if styles is not None:
+        base=styles.find('w:style[@w:styleId="FITFrontTpl_1"]/w:pPr/w:spacing',NS)
+        if base is None or any(base.get(q(k))!=v for k,v in (('before','0'),('after','0'),('line','240'),('lineRule','auto'))):
+            errors.append('isolated form defaults are missing or inherit thesis paragraph spacing')
+    def props(node,names):
+        return [(name,F.format_property_signature(node.find(q(name)))) for name in names]
+    for n in (6,10):
+        for label in ('tblGrid',):
+            if props(actual[n],[label])!=props(wanted[n],[label]):errors.append('front table '+str(n)+' '+label+' differs')
+        for name in ('tblW','tblInd','tblLayout','tblCellMar'):
+            if props(actual[n].find(q('tblPr')),[name])!=props(wanted[n].find(q('tblPr')),[name]):errors.append('front table '+str(n)+' '+name+' differs')
+        for ri,(row,refrow) in enumerate(zip(actual[n].findall(q('tr')),wanted[n].findall(q('tr')))):
+            if props(row,['trPr'])!=props(refrow,['trPr']):errors.append('front row '+str(n)+':'+str(ri)+' geometry differs')
+            for ci,(cell,refcell) in enumerate(zip(row.findall(q('tc')),refrow.findall(q('tc')))):
+                if props(cell,['tcPr'])!=props(refcell,['tcPr']):errors.append('front cell '+str(n)+':'+str(ri)+':'+str(ci)+' geometry differs')
+    for node,refnode in zip(actual,wanted):
+        ps=[node] if node.tag==q('p') else node.findall('.//w:p',NS);refs=[refnode] if refnode.tag==q('p') else refnode.findall('.//w:p',NS)
+        for p,ref in zip(ps,refs):
+            pp=p.find(q('pPr'));rpp=ref.find(q('pPr'))
+            for name in ('spacing','jc','tabs','ind','snapToGrid'):
+                a=pp.find(q(name)) if pp is not None else None;b=rpp.find(q(name)) if rpp is not None else None
+                if name=='ind':
+                    if a is not None and all(v=='0' for v in a.attrib.values()):a=None
+                    if b is not None and all(v=='0' for v in b.attrib.values()):b=None
+                if F.format_property_signature(a)!=F.format_property_signature(b):errors.append('front paragraph spacing/alignment differs: '+text(p)[:30]);break
+    return errors
+
 def _school_components(parts,root,roles,metadata,ops,issues):
     """Clone fixed clean-template components; never copy template identities."""
     body=root.find(q('body'));alltext=text(body)
@@ -809,10 +992,14 @@ def _school_components(parts,root,roles,metadata,ops,issues):
     if missing_pledge:selected+=list(tb)[9:14]
     nodes=[copy.deepcopy(x) for x in selected]
     cover=next((x for x in nodes if x.tag==q('tbl') and '题目：' in text(x)),None)
-    values=[metadata.get(k,'') for k in ('title','name','student_id','college','major','grade','supervisor','date')]
     if cover is not None:
-        for row,value in zip(cover.findall(q('tr')),values):
+        # The second row is the title's spare ruled line, not the name row.
+        fields={'题目：':'title','姓名：':'name','学号：':'student_id','学院：':'college','专业：':'major','年级：':'grade','指导教师（签名）：':'supervisor'}
+        for row in cover.findall(q('tr')):
             cells=row.findall(q('tc'))
+            key=fields.get(text(cells[0]).strip())
+            if key is None:continue
+            value=metadata.get(key,'')
             for c in cells[1:]:
                 for p in c.findall('.//w:p',NS):
                     for child in list(p):
@@ -820,6 +1007,15 @@ def _school_components(parts,root,roles,metadata,ops,issues):
                 p=c.find(q('p'))
                 if p is None:p=F.child(c,'p')
                 plain_run(p,value)
+        date=re.fullmatch(r'\s*(\d{4})年(?:\s*(\d{1,2})月)?(?:\s*(\d{1,2})日)?\s*',metadata.get('date',''))
+        if date:
+            cells=cover.findall(q('tr'))[-1].findall(q('tc'))
+            for i,value in zip((1,3,5),date.groups()):
+                if i<len(cells):
+                    p=cells[i].find(q('p'))
+                    for run in list(p):
+                        if run.tag!=q('pPr'):p.remove(run)
+                    plain_run(p,value or '')
     pledge=next((x for x in nodes if x.tag==q('tbl') and '学生承诺' in text(x)),None)
     if pledge is not None:
         # Template's fill-in cells already blank except college and signature
@@ -833,7 +1029,7 @@ def _school_components(parts,root,roles,metadata,ops,issues):
                 for t in p.findall('.//w:t',NS):t.text=''
                 plain_run(p,metadata.get('college',''))
         # Values are placed only next to exact label cells, not guessed dates.
-        label_keys={'学生姓名':'name','学号':'student_id','所在学院':'college','所学专业':'major'}
+        label_keys={'学生姓名':'name','年级':'grade','学号':'student_id','所在学院':'college','所学专业':'major'}
         for row in pledge.findall(q('tr')):
             cells=row.findall(q('tc'))
             for i,c in enumerate(cells[:-1]):
@@ -841,6 +1037,8 @@ def _school_components(parts,root,roles,metadata,ops,issues):
                 if key:
                     target=cells[i+1]
                     if not text(target).strip():plain_run(target.find(q('p')),metadata.get(key,''))
+        cn=pledge.findall(q('tr'))[2].findall(q('tc'))[1].find(q('p'))
+        if text(cn).strip()=='中文：' and metadata.get('title'):plain_run(cn,metadata['title'])
     rels=F.parse(parts[L.RELS]);trels=F.parse(template[L.RELS]);ct=F.parse(parts['[Content_Types].xml']);tct=F.parse(template['[Content_Types].xml']);used={x.get('Id') for x in rels};ridmap={};added=[]
     for node in nodes:
         for sec in list(node.findall('.//w:sectPr',NS)):sec.getparent().remove(sec)
@@ -984,6 +1182,7 @@ def format_document(source,output,decisions=None,profile=None):
             titles=[text(p).strip() for p,r in roles.items() if r=='cn_title' and text(p).strip()]
             if len(titles)==1:metadata['title']=titles[0]
         _school_components(parts,root,roles,metadata,operations,unresolved)
+        restore_school_front_geometry(parts,root,styles,roles,operations)
         for cover in root.iter(q('tbl')):
             if table_kind(cover)['kind']=='cover':_table(cover,{'kind':'cover','header_rows':0},width)
     chapter=0;equation=0

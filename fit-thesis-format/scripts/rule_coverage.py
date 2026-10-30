@@ -30,6 +30,8 @@ def evaluate(final, mapping, audit, protection_passed, dual_evidence=None):
     from format_audit import Audit
     cover_ps = [p for pid,p in ps.items() if roles.get(pid, '').startswith('cover_')]
     native_cover_logo = Audit(final, mapping=mapping).native_cover_media_match(cover_ps)
+    from format_engine import front_template_geometry_issues
+    front_geometry_issues = front_template_geometry_issues(root,F.parse(parts['word/styles.xml']))
     codes = [''.join(p.xpath('.//w:instrText/text()', namespaces=F.NS)) for p in ps.values()]
     toc_code = next((c for c in codes if re.search(r'\bTOC\b', c)), '')
     sections = root.findall('.//w:sectPr', F.NS)
@@ -82,7 +84,7 @@ def evaluate(final, mapping, audit, protection_passed, dual_evidence=None):
     native_math = dual and all(dual_evidence.get(e,{}).get('native_math_count',0) >= math_count for e in ('word','wps'))
     conditions = {
       'page.geometry': (geometry and clean('page.'), True, ['section_geometry']),
-      'front.components': (all(has(r) for r in front_roles) and native_cover_logo and clean('front.','cover.','commitment.'), True, ['cover_roles','commitment_roles','exact_template_logo_in_cover']),
+      'front.components': (all(has(r) for r in front_roles) and native_cover_logo and not front_geometry_issues and clean('front.','cover.','commitment.'), True, ['cover_roles','commitment_roles','exact_template_logo_in_cover','native_front_template_geometry']),
       'text.styles': (style_bindings and clean('paragraph.','style.'), True, ['effective_styles','final_role_map']),
       'headings.numbering': (heading_native and clean('heading.') and dual, True, ['native_multilevel_numbering','dual_numbering_page_review']),
       'toc.two_levels': (toc_levels and toc_targets and dual and clean('toc.','fields.'), True, ['toc_field_targets','both_engine_cached_target_pages']),
@@ -102,7 +104,7 @@ def evaluate(final, mapping, audit, protection_passed, dual_evidence=None):
     }
     observed = {
       'page.geometry': {'sections': len(sections), 'all_match_spec': geometry},
-      'front.components': {'present_roles': [r for r in front_roles if has(r)], 'exact_template_logo_in_cover': native_cover_logo},
+      'front.components': {'present_roles': [r for r in front_roles if has(r)], 'exact_template_logo_in_cover': native_cover_logo,'template_geometry_issues':front_geometry_issues},
       'text.styles': {'mapped_paragraphs': len(roles), 'all_styles_resolve': style_bindings},
       'headings.numbering': {'heading_paragraphs': len(heading_ps), 'native_numbering': heading_native},
       'toc.two_levels': {'instruction': toc_code, 'required_targets_present': toc_targets, 'levels_at_most_two': toc_levels},

@@ -469,6 +469,65 @@ def _guess_reference(text):
             'truncation': suffix, 'author_count_min': 4 if suffix else len(authors), 'issues': issues}
 
 
+def _missing_year_mentions(text, references, covered, structure_issue):
+    """Flag named, numbered citations even when their author-year token is absent.
+
+    Bibliography names and an existing marker in the same sentence are evidence
+    for review, never an automatic year choice. Foreign bibliography capitals
+    are compared case-insensitively; boundaries still exclude name substrings.
+    """
+    found = {}
+    for reference in references:
+        authors = reference['authors']
+        if not authors:
+            continue
+        foreign = authors[0]['language'] == 'en'
+        first = _name_pattern(authors[0])
+        full = SEPARATOR.join(_name_pattern(a) for a in authors)
+        short = first + (r'\s*(?:等人|等)' if not foreign else r'(?:\s*(?:等人|等)|\s+et\s+al\.)')
+        pattern = '(?:' + '|'.join((full, short, first)) + ')'
+        for match in re.finditer(pattern, text, re.I if foreign else 0):
+            start, end = match.span()
+            if foreign and ((start and re.match(r"[A-Za-zÀ-ÖØ-öø-ÿ0-9'’\-]", text[start-1])) or
+                            (end < len(text) and re.match(r"[A-Za-zÀ-ÖØ-öø-ÿ0-9'’\-]", text[end]))):
+                continue
+            if any(start < hi and end > lo for lo, hi in covered):
+                continue
+            if re.match(r'\s*(?:[（(]\s*)?\d{4}[a-z]?', text[end:]):
+                continue  # Existing years belong to the author-year validator.
+            sentence_end = next((i for i in range(end, len(text)) if text[i] in END_PUNCTUATION and
+                                 not (text[i] == '.' and i > 0 and i+1 < len(text) and
+                                      text[i-1].isdigit() and text[i+1].isdigit())), len(text))
+            markers = list(NUMERIC_MARKER.finditer(text[end:sentence_end]))
+            if not markers:
+                continue  # An unnumbered name may just be an ordinary mention.
+            numbers = {int(n) for token in markers for n in re.findall(r'\d+', token.group())}
+            if reference['reference_number'] not in numbers:
+                continue
+            hit = found.setdefault((start, end), {'references': [], 'markers': [m.group() for m in markers]})
+            hit['references'].append(reference)
+    result = []
+    for (start, end), hit in sorted(found.items()):
+        # Prefer the complete two-author or et al. token over its bare prefix.
+        if any(lo == start and hi > end for lo, hi in found):
+            continue
+        refs = hit['references']
+        issues = ['missing_year']
+        if len(refs) > 1:
+            issues.append('reference_ambiguous')
+        if structure_issue:
+            issues.append('protected_structure')
+        result.append({'start': start, 'end': end, 'expected_text': text[start:end],
+                       'author_start': start, 'author_end': end, 'year': None,
+                       'year_start': None, 'year_end': None,
+                       'status': 'reference_ambiguous' if len(refs) > 1 else 'missing_year',
+                       'issues': issues, 'reference_pids': [r['pid'] for r in refs],
+                       'possible_years': sorted({y for r in refs for y in r['years']}),
+                       'eligible_structure': structure_issue is None, 'reviewed': False,
+                       'notes': ['Author is cited with an existing numbered reference but no adjacent year; verify the full bibliography publication year before a source-bound edit.']})
+    return result
+
+
 def inspect_parts(parts):
     """Inspect already loaded ZIP parts; useful for audit without rereading DOCX."""
     root, styles = C.parse(parts['word/document.xml']), C.parse(parts['word/styles.xml'])
@@ -498,7 +557,7 @@ def inspect_parts(parts):
             # A bare first author is a warning only, never an approved rewrite.
             author_pattern = '(?:' + '|'.join((full, short, first)) + ')'
             pattern = author_pattern + r'\s*(?:[（(]\s*)?(\d{4}[a-z]?)(?:\s*[）)])?'
-            for match in re.finditer(pattern, text):
+            for match in re.finditer(pattern, text, re.I if authors[0]['language'] == 'en' else 0):
                 if authors[0]['language'] == 'en' and match.start() and re.match(
                         r"[A-Za-zÀ-ÖØ-öø-ÿ0-9'’\-]", text[match.start()-1]):
                     continue
@@ -539,6 +598,10 @@ def inspect_parts(parts):
                     abbreviation = EXPECTED_ABBREVIATIONS[authors[0]['language']]
                     expected_author = authors[0]['display_name'] + (' ' if abbreviation == 'et al.' else '') + abbreviation
                     correct = source_author == expected_author
+                if not correct and authors[0]['language'] == 'en':
+                    correct = source_author.casefold() == (authors[0]['display_name'] if count == 1 else
+                        EXPECTED_CONNECTOR.join(a['display_name'] for a in authors) if count == 2 else
+                        authors[0]['display_name'] + ' et al.').casefold()
                 if not correct:
                     issues.append('author_count_needs_review')
                     break
@@ -557,6 +620,10 @@ def inspect_parts(parts):
             matches.append(item)
             if issues:
                 candidates.append(item)
+        for item in _missing_year_mentions(text, references, found, issue):
+            item['pid'] = pid
+            matches.append(item)
+            candidates.append(item)
     return {'schema_version': 1, 'references': references, 'candidates': candidates, 'matches': matches,
             'expected_conventions': {'two_author_connector': EXPECTED_CONNECTOR,
                                      'three_or_more_author_abbreviations': dict(EXPECTED_ABBREVIATIONS)},
@@ -564,6 +631,7 @@ def inspect_parts(parts):
                       'Reviewed targets: two authors use 和 in both languages; three or more use Chinese 等 or foreign et al. (not 等人/与/and).',
                       'Offsets are paragraph Unicode code points, start-inclusive/end-exclusive.',
                       'Only listed bibliography names and real three-name truncation labels may be used as evidence.',
+                      'Named citations with an existing numeric marker but no adjacent year are review candidates; no publication year is chosen automatically.',
                       'Unmatched or unsupported author syntax can be absent from hints; inspect the complete document manually.']}
 
 

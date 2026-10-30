@@ -653,6 +653,15 @@ class Audit:
                      "不能只凭写有校名认定采用学校封面。按范本确认校徽与填写表布局；移入原稿真实信息，空字段不猜填。校徽字节不同仅表示尚未识别，须渲染人工确认；新增固定组件须纳入允许变更范围。",
                      "requires_render_review" if plausible else "requires_content_authorization", "medium" if plausible else "high")
         pledge_ids = [pid for pid, p in self.ps.items() if "诚信承诺书" in clean(text(p)) and len(clean(text(p))) < 100]
+        if cover_school and pledge_ids:
+            from format_engine import front_template_geometry_issues
+            geometry_issues = front_template_geometry_issues(self.doc,self.styles_root)
+            if geometry_issues:
+                self.add("warning", "front.template_geometry", self.locate(region[0][0] if region else None),
+                         {"template_geometry_differences": geometry_issues},
+                         "封面及承诺书的学校模板网格、字段位置和段落几何保持一致",
+                         "从净化模板恢复对应格式并核对实际前两页；校徽一致不能证明布局正确。",
+                         "requires_render_review")
         if not pledge_ids:
             self.add("error", "front.pledge_missing", {"part": "word/document.xml", "region": "封面之后、摘要之前"},
                      "未发现诚信承诺书标题", "学院本科毕业论文（设计）诚信承诺书原生结构",
@@ -1383,6 +1392,9 @@ class Audit:
                          "对照完整原条目查证作者名单；严格内容模式只报告，不能套正文三人简称规则或自动改文末条目。",
                          "requires_content_authorization", "low")
         expectations = {
+            "missing_year": (
+                "叙述作者后应有与已确认书目一致的出版年份",
+                "核对本稿已有条目与引用范围后，用来源绑定记录补入年份；不猜测或改写书目年份。"),
             "missing_numeric_marker": (
                 "已确认引用在所指内容末尾、句号前带与本稿书目一致的完整 [n] 上标",
                 "核对完整论述与已有书目，确定引用范围及号码后记录来源映射；纯格式模式只报告，不自动补号。"),
